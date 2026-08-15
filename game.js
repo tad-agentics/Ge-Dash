@@ -32,18 +32,76 @@ const leaderboardEmpty = document.querySelector("#leaderboardEmpty");
 const W = canvas.width;
 const H = canvas.height;
 const groundY = 445;
-const TOTAL_LEVELS = 62;
-const LEVEL_DURATION = 20;
+const LEVEL_DURATION = 18;
 const POINTS_PER_SECOND = 10;
+const CLEAR_BONUS = 50;
+const CLEAN_BONUS = 100;
+const BIRD_CLEAN_BONUS = 50;
 const LEADERBOARD_LIMIT = 10;
-const GATE_LEAD_TIME = 2.4;
+const GATE_LEAD_TIME = 2.2;
 const WARP_DURATION = 0.9;
 const PLAYER_START_X = 150;
+const AUTO_RETRY_MS = 1100;
+
+const WORLDS = [
+  {
+    id: "spark",
+    name: "Spark Fields",
+    tagline: "Jump school",
+    levels: 8,
+    teach: "Tap to jump — twice in the air for a double jump!",
+    allow: { spikes: true, stairs: false, orbs: false, pits: false, birds: false },
+  },
+  {
+    id: "steps",
+    name: "Step Towers",
+    tagline: "Climb time",
+    levels: 8,
+    teach: "Land on the bright block tops. Dark faces are danger!",
+    allow: { spikes: true, stairs: true, orbs: false, pits: false, birds: false },
+  },
+  {
+    id: "orbs",
+    name: "Orb Bridges",
+    tagline: "Precision hops",
+    levels: 8,
+    teach: "Hop the glowing orbs. Falling between them hits spikes!",
+    allow: { spikes: true, stairs: true, orbs: true, pits: false, birds: false },
+  },
+  {
+    id: "pits",
+    name: "Spring Hollows",
+    tagline: "Bounce back",
+    levels: 8,
+    teach: "Miss the orbs and you fall — use the spring in the pit!",
+    allow: { spikes: true, stairs: true, orbs: true, pits: true, birds: false },
+  },
+  {
+    id: "birds",
+    name: "Bird Winds",
+    tagline: "Watch the skies",
+    levels: 8,
+    teach: "Birds shove you back to the level start. Dodge or duck!",
+    allow: { spikes: true, stairs: true, orbs: true, pits: true, birds: true },
+  },
+  {
+    id: "quantum",
+    name: "Quantum Rush",
+    tagline: "Everything mixes",
+    levels: 8,
+    teach: "All hazards are live. Reach the quantum gate!",
+    allow: { spikes: true, stairs: true, orbs: true, pits: true, birds: true },
+  },
+];
+
+const TOTAL_LEVELS = WORLDS.reduce((sum, world) => sum + world.levels, 0);
+
 const STORAGE = {
   best: "khoiDashBest",
   unlocked: "khoiDashUnlocked",
   character: "khoiDashCharacter",
   leaderboard: "khoiDashLeaderboard",
+  stars: "khoiDashStars",
 };
 
 const SHAPES = [
@@ -93,6 +151,10 @@ let warpTime = 0;
 let distanceToBird = 500;
 let levelStartScore = 0;
 let birdHitFlash = 0;
+let deathsThisLevel = 0;
+let birdHitsThisLevel = 0;
+let orbLandsThisLevel = 0;
+let autoRetryTimer = 0;
 let state = "ready";
 let score = 0;
 let levelTime = 0;
@@ -103,13 +165,13 @@ let lastTime = 0;
 let soundOn = true;
 let audioContext;
 let best = Number(localStorage.getItem(STORAGE.best) || 0);
-let character = loadCharacter();
-let draftCharacter = { ...character };
+let character = null;
+let draftCharacter = null;
+let starMap = {};
 
-bestEl.textContent = best;
-levelEl.textContent = currentLevel;
-messageEl.querySelector("h2").textContent = `Level ${currentLevel} of ${TOTAL_LEVELS}`;
-updatePlayerNameDisplay();
+const worldNameEl = document.querySelector("#worldName");
+const worldLevelEl = document.querySelector("#worldLevel");
+const starsEl = document.querySelector("#starsDisplay");
 
 function defaultCharacter() {
   return { name: "Dash", shape: "square", face: "smile", color: "teal", preset: "dash" };
@@ -134,6 +196,90 @@ function loadCharacter() {
     return defaultCharacter();
   }
 }
+
+function loadStars() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE.stars) || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStars() {
+  localStorage.setItem(STORAGE.stars, JSON.stringify(starMap));
+}
+
+function getWorldInfo(level) {
+  let remaining = level;
+  for (let i = 0; i < WORLDS.length; i++) {
+    const world = WORLDS[i];
+    if (remaining <= world.levels) {
+      return { world, worldIndex: i, levelInWorld: remaining, worldNumber: i + 1 };
+    }
+    remaining -= world.levels;
+  }
+  const last = WORLDS[WORLDS.length - 1];
+  return { world: last, worldIndex: WORLDS.length - 1, levelInWorld: last.levels, worldNumber: WORLDS.length };
+}
+
+function currentWorldInfo() {
+  return getWorldInfo(currentLevel);
+}
+
+function worldLocalDifficulty() {
+  const info = currentWorldInfo();
+  const within = (info.levelInWorld - 1) / Math.max(1, info.world.levels - 1);
+  return Math.min(1, info.worldIndex / (WORLDS.length - 1) * 0.55 + within * 0.45);
+}
+
+function levelDifficulty() {
+  return worldLocalDifficulty();
+}
+
+function totalStarsEarned() {
+  return Object.values(starMap).reduce((sum, value) => sum + Number(value || 0), 0);
+}
+
+function updateWorldHud() {
+  const info = currentWorldInfo();
+  if (worldNameEl) worldNameEl.textContent = info.world.name;
+  if (worldLevelEl) worldLevelEl.textContent = `${info.levelInWorld}/${info.world.levels}`;
+  if (levelEl) levelEl.textContent = String(currentLevel);
+}
+
+function updateStarsHud() {
+  if (starsEl) starsEl.textContent = String(totalStarsEarned());
+}
+
+function showReadyMessage() {
+  const info = currentWorldInfo();
+  messageEl.innerHTML = `<p class="message-kicker">${info.world.name}</p><h2>${info.world.teach}</h2><p>Level ${info.levelInWorld}/${info.world.levels} · Tap, click, or press <kbd>Space</kbd></p>`;
+  messageEl.classList.remove("hidden");
+}
+
+function awardStarsForClear() {
+  let stars = 1;
+  if (deathsThisLevel === 0) stars += 1;
+  if (birdHitsThisLevel === 0 && deathsThisLevel === 0) stars += 1;
+  const key = String(currentLevel);
+  const previous = Number(starMap[key] || 0);
+  if (stars > previous) {
+    starMap[key] = stars;
+    saveStars();
+    updateStarsHud();
+  }
+  return { stars, previous };
+}
+
+character = loadCharacter();
+draftCharacter = { ...character };
+starMap = loadStars();
+bestEl.textContent = best;
+updateWorldHud();
+updateStarsHud();
+updatePlayerNameDisplay();
+showReadyMessage();
 
 function saveCharacterData(next) {
   character = {
@@ -203,43 +349,45 @@ function beep(frequency, duration, volume = 0.05) {
   oscillator.stop(audioContext.currentTime + duration);
 }
 
-function levelDifficulty() {
-  return (currentLevel - 1) / Math.max(1, TOTAL_LEVELS - 1);
-}
-
 function scheduleNextBird() {
-  const difficulty = levelDifficulty();
-  // Keep early levels mostly bird-free; appear as occasional mid/late hazards.
-  if (difficulty < 0.12) {
+  const info = currentWorldInfo();
+  if (!info.world.allow.birds) {
     distanceToBird = Number.POSITIVE_INFINITY;
     return;
   }
-  const minGap = 1100 - difficulty * 350;
-  const spread = 1600 - difficulty * 700;
-  distanceToBird = minGap + Math.random() * Math.max(400, spread);
-  // Sometimes skip an extra beat so packs don't feel constant.
-  if (Math.random() > 0.35 + difficulty * 0.4) {
-    distanceToBird += 500 + Math.random() * 700;
+  const difficulty = levelDifficulty();
+  const minGap = 1400 - difficulty * 400;
+  const spread = 1800 - difficulty * 700;
+  distanceToBird = minGap + Math.random() * Math.max(500, spread);
+  if (Math.random() > 0.25 + difficulty * 0.35) {
+    distanceToBird += 700 + Math.random() * 900;
   }
 }
 
 function spawnBird() {
+  const info = currentWorldInfo();
+  if (!info.world.allow.birds) {
+    scheduleNextBird();
+    return;
+  }
   const difficulty = levelDifficulty();
-  const flockChance = Math.max(0, (difficulty - 0.45) * 0.45);
-  const count = Math.random() < flockChance ? (Math.random() < difficulty * 0.3 ? 3 : 2) : 1;
-  const baseY = groundY - (95 + Math.random() * (110 + difficulty * 90));
-  const dive = Math.random() < difficulty * 0.35;
+  const flockChance = Math.max(0, (difficulty - 0.55) * 0.35);
+  const count = Math.random() < flockChance ? 2 : 1;
+  const baseY = groundY - (100 + Math.random() * (100 + difficulty * 70));
+  const dive = info.worldIndex >= 5 && Math.random() < difficulty * 0.3;
+  beep(880, 0.05, 0.03);
   for (let i = 0; i < count; i++) {
     birds.push({
-      x: W + 50 + i * 34,
-      y: baseY + (i - (count - 1) / 2) * 26,
+      x: W + 80 + i * 40,
+      y: baseY + (i - (count - 1) / 2) * 28,
       width: 34,
       height: 22,
       wing: Math.random() * Math.PI * 2,
       bob: Math.random() * Math.PI * 2,
-      extraSpeed: 1.2 + difficulty * 3.8 + Math.random() * (1 + difficulty * 2),
+      extraSpeed: 1.0 + difficulty * 2.8 + Math.random() * (1 + difficulty),
       dive,
       divePhase: 0,
+      warn: 1,
     });
   }
   scheduleNextBird();
@@ -274,6 +422,7 @@ function bounceToLevelStart() {
   burstFeathers(hitX, hitY);
   beep(180, 0.12, 0.07);
   beep(140, 0.18, 0.06);
+  birdHitsThisLevel += 1;
 
   birds = [];
   obstacles = [];
@@ -283,7 +432,7 @@ function bounceToLevelStart() {
   levelTime = 0;
   score = levelStartScore;
   scheduleNextBird();
-  distanceToNext = 280 + Math.random() * 120;
+  distanceToNext = 320 + Math.random() * 140;
   Object.assign(player, {
     x: PLAYER_START_X,
     y: groundY - player.size,
@@ -299,6 +448,10 @@ function bounceToLevelStart() {
 }
 
 function startLevel(resetScore = false) {
+  if (autoRetryTimer) {
+    clearTimeout(autoRetryTimer);
+    autoRetryTimer = 0;
+  }
   obstacles = [];
   birds = [];
   particles = [];
@@ -306,11 +459,23 @@ function startLevel(resetScore = false) {
   quantumGate = null;
   warpTime = 0;
   birdHitFlash = 0;
-  if (resetScore) score = 0;
+  if (resetScore) {
+    score = 0;
+    deathsThisLevel = 0;
+    birdHitsThisLevel = 0;
+    orbLandsThisLevel = 0;
+  }
+  // Fresh attempt from a continue/clear resets clean-run tracking.
+  if (state === "ready" || state === "complete" || state === "finished") {
+    deathsThisLevel = 0;
+    birdHitsThisLevel = 0;
+    orbLandsThisLevel = 0;
+  }
   levelStartScore = score;
   levelTime = 0;
-  speed = 6.5 + levelDifficulty() * 5.5;
-  distanceToNext = 430;
+  const info = currentWorldInfo();
+  speed = 5.8 + info.worldIndex * 0.55 + (info.levelInWorld - 1) * 0.12;
+  distanceToNext = 400;
   scheduleNextBird();
   Object.assign(player, {
     x: PLAYER_START_X,
@@ -322,7 +487,7 @@ function startLevel(resetScore = false) {
   });
   jumpsUsed = 0;
   scoreEl.textContent = Math.floor(score);
-  levelEl.textContent = currentLevel;
+  updateWorldHud();
   levelProgressEl.style.width = "0%";
   state = "playing";
   messageEl.classList.add("hidden");
@@ -332,7 +497,13 @@ function act() {
   if (characterModal.classList.contains("hidden") === false) return;
   if (leaderboardModal.classList.contains("hidden") === false) return;
   if (state === "warping") return;
-  if (state !== "playing") return startLevel(["ready", "over", "complete", "finished"].includes(state));
+  if (state !== "playing") {
+    if (autoRetryTimer) {
+      clearTimeout(autoRetryTimer);
+      autoRetryTimer = 0;
+    }
+    return startLevel(["ready", "over", "complete", "finished"].includes(state));
+  }
   if (jumpsUsed < 2) {
     player.velocityY = jumpsUsed === 0 ? -17.2 : -14.5;
     jumpsUsed += 1;
@@ -470,6 +641,7 @@ function updateWarp(dt, elapsedSeconds) {
 
 function endGame() {
   state = "over";
+  deathsThisLevel += 1;
   quantumGate = null;
   birds = [];
   suctionParticles = [];
@@ -480,10 +652,14 @@ function endGame() {
   best = Math.max(best, finalScore);
   localStorage.setItem(STORAGE.best, best);
   bestEl.textContent = best;
-  const rank = submitScore(finalScore, currentLevel);
-  const rankText = rank > 0 && rank <= LEADERBOARD_LIMIT ? ` · Board #${rank}` : "";
-  messageEl.innerHTML = `<p class="message-kicker">Level ${currentLevel}</p><h2>Try again!</h2><p>${finalScore} points${rankText} · Tap, click, or press <kbd>Space</kbd></p>`;
+  const info = currentWorldInfo();
+  messageEl.innerHTML = `<p class="message-kicker">${info.world.name}</p><h2>Ouch!</h2><p>${finalScore} pts · Auto-retry… or tap now</p>`;
   messageEl.classList.remove("hidden");
+  if (autoRetryTimer) clearTimeout(autoRetryTimer);
+  autoRetryTimer = setTimeout(() => {
+    autoRetryTimer = 0;
+    if (state === "over") startLevel(false);
+  }, AUTO_RETRY_MS);
 }
 
 function completeLevel() {
@@ -495,64 +671,112 @@ function completeLevel() {
   player.scale = 1;
   player.alpha = 1;
   beep(880, 0.25, 0.07);
+
+  let bonus = CLEAR_BONUS;
+  if (deathsThisLevel === 0) bonus += CLEAN_BONUS;
+  if (birdHitsThisLevel === 0 && deathsThisLevel === 0) bonus += BIRD_CLEAN_BONUS;
+  score += bonus;
+  const starResult = awardStarsForClear();
+  const starText = "★".repeat(starResult.stars) + "☆".repeat(3 - starResult.stars);
+
   const finalScore = Math.floor(score);
   best = Math.max(best, finalScore);
   localStorage.setItem(STORAGE.best, best);
   bestEl.textContent = best;
+  scoreEl.textContent = finalScore;
+
+  const info = currentWorldInfo();
   if (currentLevel === TOTAL_LEVELS) {
     state = "finished";
     const rank = submitScore(finalScore, currentLevel);
     const rankText = rank > 0 && rank <= LEADERBOARD_LIMIT ? ` · Board #${rank}` : "";
-    messageEl.innerHTML = `<p class="message-kicker">All 62 levels complete!</p><h2>You are a Dash Master!</h2><p>Final score: ${finalScore}${rankText} · Tap to play level 62 again</p>`;
+    messageEl.innerHTML = `<p class="message-kicker">Campaign clear!</p><h2>Dash Master!</h2><p>${starText} · ${finalScore} pts (+${bonus})${rankText}</p><p>Tap for endless rematch on the final world</p>`;
   } else {
-    const completedLevel = currentLevel;
+    const completed = info.levelInWorld;
+    const worldName = info.world.name;
     currentLevel += 1;
     localStorage.setItem(STORAGE.unlocked, currentLevel);
-    levelEl.textContent = currentLevel;
-    messageEl.innerHTML = `<p class="message-kicker">Quantum gate cleared!</p><h2>Level ${completedLevel} → ${currentLevel}</h2><p>Tap, click, or press <kbd>Space</kbd> to dash on</p>`;
+    updateWorldHud();
+    const next = currentWorldInfo();
+    const worldClear = completed === info.world.levels;
+    messageEl.innerHTML = worldClear
+      ? `<p class="message-kicker">${worldName} clear!</p><h2>${next.world.name}</h2><p>${starText} · +${bonus} bonus · ${next.world.teach}</p>`
+      : `<p class="message-kicker">Gate cleared!</p><h2>${starText}</h2><p>+${bonus} bonus · Next ${next.levelInWorld}/${next.world.levels} · Tap to continue</p>`;
   }
   messageEl.classList.remove("hidden");
 }
 
 function spawnSpikeCluster() {
   const difficulty = levelDifficulty();
-  const clusterSize = Math.random() < difficulty * 0.55 ? (Math.random() < difficulty * 0.3 ? 3 : 2) : 1;
+  const clusterSize = Math.random() < difficulty * 0.45 ? (Math.random() < difficulty * 0.25 ? 3 : 2) : 1;
   const spikeWidth = 40;
   obstacles.push({
     type: "spike",
     x: W + 30,
     width: spikeWidth * clusterSize,
-    height: 42 + difficulty * 10,
+    height: 40 + difficulty * 8,
   });
-  const minGap = 245 - difficulty * 45;
-  const randomGap = 260 - difficulty * 100;
+  const minGap = 270 - difficulty * 40;
+  const randomGap = 280 - difficulty * 90;
   distanceToNext = minGap + Math.random() * randomGap;
 }
 
 function spawnStaircase() {
   const difficulty = levelDifficulty();
+  const info = currentWorldInfo();
   let x = W + 50;
   const spikeWidth = 36;
   const spikePairWidth = spikeWidth * 2;
-  const spikeHeight = 40 + difficulty * 8;
-  // Ascending steps: short → mid → tall, with 2 spikes in each gap.
+  const spikeHeight = 38 + difficulty * 6;
+  const scale = info.worldIndex <= 1 && info.levelInWorld <= 3 ? 0.82 : 1;
   const steps = [
-    { width: 68, height: 74 },
-    { width: 96, height: 138 },
-    { width: 124, height: 205 },
+    { width: 68 * scale, height: 70 * scale },
+    { width: 96 * scale, height: 128 * scale },
+    { width: 118 * scale, height: 188 * scale },
   ];
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     obstacles.push({ type: "block", x, width: step.width, height: step.height });
-    x += step.width + 4;
+    x += step.width + 6;
     if (i < steps.length - 1) {
       obstacles.push({ type: "spike", x, width: spikePairWidth, height: spikeHeight });
-      x += spikePairWidth + 4;
+      x += spikePairWidth + 6;
     }
   }
 
-  distanceToNext = 340 + Math.random() * (240 - difficulty * 90);
+  distanceToNext = 360 + Math.random() * (240 - difficulty * 80);
+}
+
+function spawnOrbBridge() {
+  const difficulty = levelDifficulty();
+  const info = currentWorldInfo();
+  let x = W + 45;
+  const spikeCount = info.levelInWorld <= 3 ? 4 : 6;
+  const spikeWidth = 40;
+  const spikeHeight = 40 + difficulty * 5;
+  const orbRadius = 15;
+  const orbBaseY = groundY - spikeHeight - 62 - difficulty * 8;
+
+  obstacles.push({ type: "block", x, width: 80, height: 54 });
+  x += 82;
+
+  for (let i = 0; i < spikeCount; i++) {
+    const sx = x + i * spikeWidth;
+    obstacles.push({ type: "spike", x: sx, width: spikeWidth, height: spikeHeight });
+    obstacles.push({
+      type: "orb",
+      x: sx + spikeWidth / 2,
+      baseY: orbBaseY,
+      y: orbBaseY,
+      radius: orbRadius,
+      width: orbRadius * 2,
+      bob: i * 0.7,
+    });
+  }
+  x += spikeCount * spikeWidth + 8;
+  obstacles.push({ type: "block", x, width: 80, height: 54 });
+  distanceToNext = 380 + Math.random() * 180;
 }
 
 function spawnOrbPit() {
@@ -561,15 +785,14 @@ function spawnOrbPit() {
   const ledgeHeight = 58;
   const ledgeWidth = 88;
 
-  // Approach ledge before the spike/orbs run.
   obstacles.push({ type: "block", x, width: ledgeWidth, height: ledgeHeight });
   x += ledgeWidth + 2;
 
   const spikeCount = 6;
   const spikeWidth = 38;
   const spikeHeight = 42 + difficulty * 6;
-  const orbRadius = 13;
-  const orbBaseY = groundY - spikeHeight - 58 - difficulty * 12;
+  const orbRadius = 15;
+  const orbBaseY = groundY - spikeHeight - 58 - difficulty * 10;
 
   for (let i = 0; i < spikeCount; i++) {
     const sx = x + i * spikeWidth;
@@ -596,21 +819,35 @@ function spawnOrbPit() {
     height: 20,
   });
   x += pitWidth;
-
-  // Exit ledge after the pit.
   obstacles.push({ type: "block", x, width: 86, height: ledgeHeight });
-
   distanceToNext = 390 + Math.random() * (220 - difficulty * 70);
 }
 
 function spawnObstacle() {
+  const info = currentWorldInfo();
+  const allow = info.world.allow;
   const difficulty = levelDifficulty();
+  const options = [];
+  if (allow.spikes) options.push("spikes");
+  if (allow.stairs) options.push("stairs");
+  if (allow.orbs && !allow.pits) options.push("orbs");
+  if (allow.pits) options.push("pits");
+  if (allow.stairs && allow.spikes && info.worldIndex >= 1) options.push("stairs");
+
+  // Prefer teaching the world's new toy on early levels.
+  if (info.levelInWorld <= 2) {
+    if (info.worldIndex === 1 && allow.stairs) return spawnStaircase();
+    if (info.worldIndex === 2 && allow.orbs) return spawnOrbBridge();
+    if (info.worldIndex === 3 && allow.pits) return spawnOrbPit();
+    if (info.worldIndex === 0) return spawnSpikeCluster();
+  }
+
   const roll = Math.random();
-  const pitChance = 0.24 + difficulty * 0.18;
-  const stairChance = 0.28 + difficulty * 0.2;
-  if (roll < pitChance) spawnOrbPit();
-  else if (roll < pitChance + stairChance) spawnStaircase();
-  else spawnSpikeCluster();
+  if (allow.pits && roll < 0.28 + difficulty * 0.15) return spawnOrbPit();
+  if (allow.orbs && !allow.pits && roll < 0.45) return spawnOrbBridge();
+  if (allow.orbs && allow.pits && roll < 0.2) return spawnOrbBridge();
+  if (allow.stairs && roll < 0.55) return spawnStaircase();
+  return spawnSpikeCluster();
 }
 
 function overlapsSpike(o) {
@@ -677,6 +914,11 @@ function resolvePlatformLanding() {
       player.velocityY = 0;
       jumpsUsed = 0;
       player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+      if (!o.landed) {
+        o.landed = true;
+        orbLandsThisLevel += 1;
+        beep(720, 0.05, 0.04);
+      }
       return true;
     }
   }
@@ -1048,18 +1290,24 @@ function drawObstacles() {
     }
 
     if (o.type === "orb") {
+      const pulse = 1 + Math.sin((o.bob || 0) * 2) * 0.08;
       ctx.shadowColor = "#9ef6ff";
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = 18;
       ctx.strokeStyle = "#9ef6ff";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(o.x, o.y, o.radius, 0, Math.PI * 2);
+      ctx.arc(o.x, o.y, o.radius * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = "#9ef6ff33";
+      ctx.fillStyle = "#9ef6ff44";
       ctx.beginPath();
-      ctx.arc(o.x, o.y, o.radius - 2, 0, Math.PI * 2);
+      ctx.arc(o.x, o.y, o.radius - 1, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#ffffffcc";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.radius + 7 + Math.sin((o.bob || 0) * 3) * 2, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.fillStyle = "#ffffffaa";
       ctx.beginPath();
       ctx.arc(o.x - 3, o.y - 3, 3, 0, Math.PI * 2);
@@ -1071,16 +1319,23 @@ function drawObstacles() {
       const top = blockTop(o);
       ctx.shadowColor = "#7f94ff";
       ctx.shadowBlur = 14;
-      const gradient = ctx.createLinearGradient(o.x, top, o.x, groundY);
-      gradient.addColorStop(0, "#9aa8ff");
-      gradient.addColorStop(1, "#3b4a9a");
-      ctx.fillStyle = gradient;
+      // Dangerous face
+      const face = ctx.createLinearGradient(o.x, top, o.x, groundY);
+      face.addColorStop(0, "#2a335f");
+      face.addColorStop(1, "#151b3a");
+      ctx.fillStyle = face;
       ctx.fillRect(o.x, top, o.width, o.height);
       ctx.shadowBlur = 0;
+      // Hazard stripes on face
+      ctx.fillStyle = "#ff5ea833";
+      for (let y = top + 18; y < groundY - 8; y += 14) {
+        ctx.fillRect(o.x + 4, y, o.width - 8, 5);
+      }
+      // Safe landing top
       ctx.fillStyle = "#76f7d2";
-      ctx.fillRect(o.x, top, o.width, 6);
-      ctx.fillStyle = "#ffffff22";
-      ctx.fillRect(o.x + 8, top + 14, Math.max(12, o.width - 16), 10);
+      ctx.fillRect(o.x - 2, top - 2, o.width + 4, 10);
+      ctx.fillStyle = "#d7fff4";
+      ctx.fillRect(o.x + 6, top, Math.max(10, o.width - 12), 4);
       return;
     }
 
@@ -1108,10 +1363,20 @@ function drawBirds() {
     const flap = Math.sin(bird.wing);
     const bodyY = bird.y + bird.height / 2;
     const bodyX = bird.x + bird.width / 2;
+    const near = bird.x < player.x + 280;
     ctx.save();
     ctx.translate(bodyX, bodyY);
+    if (near) {
+      ctx.shadowColor = "#ff5ea8";
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = "#ff5ea888";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 26, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
-    ctx.fillStyle = "#1b243f";
+    ctx.fillStyle = near ? "#2a1838" : "#1b243f";
     ctx.beginPath();
     ctx.ellipse(0, 0, 14, 8, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -1133,7 +1398,7 @@ function drawBirds() {
     ctx.arc(-8.5, -2, 1, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "#c9a0ff";
+    ctx.strokeStyle = near ? "#ff5ea8" : "#c9a0ff";
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -1527,7 +1792,12 @@ document.addEventListener(
   },
   { passive: false }
 );
-restartButton.addEventListener("click", () => startLevel(true));
+restartButton.addEventListener("click", () => {
+  deathsThisLevel = 0;
+  birdHitsThisLevel = 0;
+  orbLandsThisLevel = 0;
+  startLevel(true);
+});
 soundButton.addEventListener("click", () => {
   soundOn = !soundOn;
   soundButton.textContent = soundOn ? "Sound" : "Muted";

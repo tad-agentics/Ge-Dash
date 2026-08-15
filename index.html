@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Khoi-Dash</title>
-    <link rel="stylesheet" href="styles.css?v=play1" />
+    <link rel="stylesheet" href="styles.css?v=worlds1" />
   </head>
   <body>
     <main class="game-shell">
@@ -26,10 +26,13 @@
       </header>
 
       <section class="scoreboard" aria-label="Game scores">
-        <div><span>Player</span><strong id="playerNameDisplay">Dash</strong></div>
-        <div><span>Level</span><strong><span id="level">1</span>/62</strong></div>
+        <div><span>World</span><strong id="worldName">Spark Fields</strong></div>
+        <div><span>Stage</span><strong id="worldLevel">1/8</strong></div>
         <div><span>Score</span><strong id="score">0</strong></div>
-        <div><span>Best</span><strong id="bestScore">0</strong></div>
+        <div><span>Stars</span><strong id="starsDisplay">0</strong></div>
+        <div class="scoreboard-best"><span>Best</span><strong id="bestScore">0</strong></div>
+        <div class="scoreboard-hidden" hidden><span>Level</span><strong id="level">1</strong></div>
+        <div class="scoreboard-hidden" hidden><span>Player</span><strong id="playerNameDisplay">Dash</strong></div>
       </section>
 
       <section class="canvas-wrap">
@@ -43,7 +46,7 @@
       </section>
 
       <footer>
-        <p><strong>How to play:</strong> climb stair blocks, hop the floating orbs over spikes, and bounce from pit springs — miss an orb and the spikes get you.</p>
+        <p><strong>How to play:</strong> each world teaches one new trick. Earn ★★★ with clean clears.</p>
         <button id="restartButton" type="button">Restart level</button>
       </footer>
     </main>
@@ -101,6 +104,6 @@
       </div>
     </div>
 
-    <script src="game.js?v=play1"></script>
+    <script src="game.js?v=worlds1"></script>
   </body>
 </html>

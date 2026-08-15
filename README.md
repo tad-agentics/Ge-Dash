@@ -2,43 +2,36 @@
 
 A tiny one-button platform game made for Dad and Sup.
 
-The campaign has 62 equally timed levels. Each level lasts 20 seconds, while
-speed, obstacle spacing, and spike clusters become progressively harder. Levels
-also mix in **staircase blocks** — three rising platforms with two spikes in each
-gap. You can land on top of the blocks; hitting a spike or the face of a block
-ends the run. Another hazard is the **orb pit**: six spikes with a floating orb
-above each one, then a pit with a spring pad at the bottom. Land on the orbs to
-stay safe; fall between them onto spikes and you lose. The score increases at a
-constant 10 points for every second the player survives.
-Near the end of every level a **quantum gate** appears — dash into it and get
-pulled through with a vortex suck to reach the next level.
+## Campaign
 
-**Birds** start showing up as levels get harder. Touch one and you are thrown
-back to the start of the current level (progress resets, score for that level
-attempt is undone).
+Six worlds × eight stages (**48 levels**). Each world teaches one new idea:
+
+1. **Spark Fields** — jump / double jump over spikes  
+2. **Step Towers** — climb bright block tops (dark faces hurt)  
+3. **Orb Bridges** — hop floating orbs over spike rows  
+4. **Spring Hollows** — pits with bounce pads after the orbs  
+5. **Bird Winds** — rare birds shove you back to stage start  
+6. **Quantum Rush** — everything mixes; clear the quantum gate  
+
+Each stage is about 18 seconds. Clear the **quantum gate** to continue.
+Earn up to ★★★ per stage (clear / no death / no bird hit) and bonus points
+for clean runs. After a crash the game auto-retries quickly.
 
 ## Play
 
 Open `index.html` in a browser. Press Space, click, or tap to jump.
-Use **Full** (or press `F`) for fullscreen; on iPhones it uses an immersive
-fallback when the browser blocks the Fullscreen API.
+Use **Full** (or press `F`) for fullscreen; phones start in an immersive layout.
 
-The game uses only HTML, CSS, and JavaScript, so there are no packages to install.
+No packages to install — plain HTML, CSS, and JavaScript.
 
 ## Customize
 
-- Open **Character** to pick one of 6 quick heroes, or mix your own:
-  - 6 shapes: square, circle, triangle, diamond, hexagon, star
-  - 6 faces: smile, wink, surprised, cool, silly, determined
-  - 6 colors: teal, pink, yellow, sky, lavender, orange
-- Edit your player name (saved on this device).
-- Open **Board** to see the local top-10 leaderboard. Scores are saved when a
-  run ends or the campaign is finished.
+- **Hero**: 6 presets or mix shape / face / color, plus your name  
+- **Top**: local top-10 leaderboard on this device  
 
 ## Ideas to build together
 
 - Draw a new face for the player.
-- Pick a new color theme.
+- Name a custom world map.
 - Add coins and power-ups.
-- Design named levels.
 - Record funny jump and crash sounds.

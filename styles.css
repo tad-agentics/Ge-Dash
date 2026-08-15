@@ -120,6 +120,9 @@ button:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d9f88; }
   border: 1px solid #ffffff14;
 }
 
+.scoreboard-hidden { display: none !important; }
+.scoreboard-best strong { color: var(--accent); }
+
 .scoreboard span { display: block; color: #aab4dc; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; }
 .scoreboard strong {
   display: block;
