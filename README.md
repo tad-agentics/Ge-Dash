@@ -6,8 +6,10 @@ The campaign has 62 equally timed levels. Each level lasts 20 seconds, while
 speed, obstacle spacing, and spike clusters become progressively harder. Levels
 also mix in **staircase blocks** — three rising platforms with two spikes in each
 gap. You can land on top of the blocks; hitting a spike or the face of a block
-ends the run. The score increases at a constant 10 points for every second the
-player survives.
+ends the run. Another hazard is the **orb pit**: six spikes with a floating orb
+above each one, then a pit with a spring pad at the bottom. Land on the orbs to
+stay safe; fall between them onto spikes and you lose. The score increases at a
+constant 10 points for every second the player survives.
 Near the end of every level a **quantum gate** appears — dash into it and get
 pulled through with a vortex suck to reach the next level.
 

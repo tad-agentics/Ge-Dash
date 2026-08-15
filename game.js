@@ -555,9 +555,61 @@ function spawnStaircase() {
   distanceToNext = 340 + Math.random() * (240 - difficulty * 90);
 }
 
+function spawnOrbPit() {
+  const difficulty = levelDifficulty();
+  let x = W + 45;
+  const ledgeHeight = 58;
+  const ledgeWidth = 88;
+
+  // Approach ledge before the spike/orbs run.
+  obstacles.push({ type: "block", x, width: ledgeWidth, height: ledgeHeight });
+  x += ledgeWidth + 2;
+
+  const spikeCount = 6;
+  const spikeWidth = 38;
+  const spikeHeight = 42 + difficulty * 6;
+  const orbRadius = 13;
+  const orbBaseY = groundY - spikeHeight - 58 - difficulty * 12;
+
+  for (let i = 0; i < spikeCount; i++) {
+    const sx = x + i * spikeWidth;
+    obstacles.push({ type: "spike", x: sx, width: spikeWidth, height: spikeHeight });
+    obstacles.push({
+      type: "orb",
+      x: sx + spikeWidth / 2,
+      baseY: orbBaseY,
+      y: orbBaseY,
+      radius: orbRadius,
+      width: orbRadius * 2,
+      bob: i * 0.7,
+    });
+  }
+  x += spikeCount * spikeWidth + 10;
+
+  const pitWidth = 128 + difficulty * 24;
+  obstacles.push({ type: "pit", x, width: pitWidth, height: H - groundY + 80 });
+  obstacles.push({
+    type: "spring",
+    x: x + 12,
+    width: pitWidth - 24,
+    y: groundY + 78,
+    height: 20,
+  });
+  x += pitWidth;
+
+  // Exit ledge after the pit.
+  obstacles.push({ type: "block", x, width: 86, height: ledgeHeight });
+
+  distanceToNext = 390 + Math.random() * (220 - difficulty * 70);
+}
+
 function spawnObstacle() {
   const difficulty = levelDifficulty();
-  if (Math.random() < 0.42 + difficulty * 0.28) spawnStaircase();
+  const roll = Math.random();
+  const pitChance = 0.24 + difficulty * 0.18;
+  const stairChance = 0.28 + difficulty * 0.2;
+  if (roll < pitChance) spawnOrbPit();
+  else if (roll < pitChance + stairChance) spawnStaircase();
   else spawnSpikeCluster();
 }
 
@@ -571,6 +623,11 @@ function blockTop(o) {
   return groundY - o.height;
 }
 
+function isOverPit() {
+  const mid = player.x + player.size / 2;
+  return obstacles.some((o) => o.type === "pit" && mid > o.x + 4 && mid < o.x + o.width - 4);
+}
+
 function isLandingOnBlock(o) {
   if (o.type !== "block" || player.velocityY < 0) return false;
   const pad = 6;
@@ -578,6 +635,17 @@ function isLandingOnBlock(o) {
   const foot = player.y + player.size;
   const overlapsX = player.x + player.size - pad > o.x && player.x + pad < o.x + o.width;
   return overlapsX && foot >= top && foot <= top + 18 && player.y < top;
+}
+
+function isLandingOnOrb(o) {
+  if (o.type !== "orb" || player.velocityY < 0) return false;
+  const pad = 3;
+  const top = o.y - o.radius;
+  const foot = player.y + player.size;
+  const overlapsX =
+    player.x + player.size - pad > o.x - o.radius * 0.9 &&
+    player.x + pad < o.x + o.radius * 0.9;
+  return overlapsX && foot >= top && foot <= top + 16 && player.y < top;
 }
 
 function overlapsBlockBody(o) {
@@ -597,11 +665,47 @@ function overlapsBlockBody(o) {
 
 function resolvePlatformLanding() {
   for (const o of obstacles) {
-    if (!isLandingOnBlock(o)) continue;
-    player.y = blockTop(o) - player.size;
-    player.velocityY = 0;
-    jumpsUsed = 0;
-    player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+    if (isLandingOnBlock(o)) {
+      player.y = blockTop(o) - player.size;
+      player.velocityY = 0;
+      jumpsUsed = 0;
+      player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+      return true;
+    }
+    if (isLandingOnOrb(o)) {
+      player.y = o.y - o.radius - player.size;
+      player.velocityY = 0;
+      jumpsUsed = 0;
+      player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+      return true;
+    }
+  }
+  return false;
+}
+
+function resolveSpring() {
+  for (const o of obstacles) {
+    if (o.type !== "spring" || player.velocityY < 0) continue;
+    const pad = 4;
+    const top = o.y;
+    const foot = player.y + player.size;
+    const overlapsX = player.x + player.size - pad > o.x && player.x + pad < o.x + o.width;
+    if (!overlapsX || foot < top || foot > top + 24) continue;
+    player.y = top - player.size;
+    player.velocityY = -21.5 - levelDifficulty() * 1.8;
+    jumpsUsed = 1;
+    o.squash = 1;
+    beep(240, 0.06, 0.05);
+    beep(520, 0.1, 0.06);
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        x: player.x + player.size / 2,
+        y: top,
+        vx: (Math.random() - 0.5) * 5,
+        vy: -Math.random() * 5 - 2,
+        life: 0.7,
+      });
+    }
     return true;
   }
   return false;
@@ -637,14 +741,23 @@ function update(dt, elapsedSeconds) {
   player.velocityY += 0.92 * dt;
   player.y += player.velocityY * dt;
 
+  if (resolveSpring()) {
+    // launched upward from trampoline
+  }
+
   const onPlatform = resolvePlatformLanding();
-  if (!onPlatform && player.y >= groundY - player.size) {
+  if (!onPlatform && player.y >= groundY - player.size && !isOverPit()) {
     player.y = groundY - player.size;
     player.velocityY = 0;
     jumpsUsed = 0;
     player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
-  } else if (!onPlatform) {
+  } else if (!onPlatform && player.velocityY !== 0) {
     player.rotation += 0.09 * dt;
+  }
+
+  if (player.y > H + 60) {
+    endGame();
+    return;
   }
 
   if (!quantumGate) {
@@ -656,8 +769,18 @@ function update(dt, elapsedSeconds) {
 
   obstacles.forEach((o) => {
     o.x -= speed * dt;
+    if (o.type === "orb") {
+      o.bob += 0.08 * dt;
+      o.y = o.baseY + Math.sin(o.bob) * 5;
+    }
+    if (o.type === "spring" && o.squash > 0) {
+      o.squash = Math.max(0, o.squash - elapsedSeconds * 4);
+    }
   });
-  obstacles = obstacles.filter((o) => o.x + o.width > -20);
+  obstacles = obstacles.filter((o) => {
+    const right = o.type === "orb" ? o.x + o.radius : o.x + o.width;
+    return right > -40;
+  });
 
   // Keep standing on platforms after they scroll under the player.
   if (player.velocityY >= 0) resolvePlatformLanding();
@@ -884,6 +1007,66 @@ function drawPlayer() {
 
 function drawObstacles() {
   obstacles.forEach((o) => {
+    if (o.type === "pit") {
+      ctx.fillStyle = "#050814";
+      ctx.fillRect(o.x, groundY - 2, o.width, H - groundY + 2);
+      ctx.fillStyle = "#1a1030";
+      ctx.fillRect(o.x, groundY + 28, o.width, H - groundY - 28);
+      ctx.strokeStyle = "#76f7d255";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(o.x, groundY);
+      ctx.lineTo(o.x, H);
+      ctx.moveTo(o.x + o.width, groundY);
+      ctx.lineTo(o.x + o.width, H);
+      ctx.stroke();
+      return;
+    }
+
+    if (o.type === "spring") {
+      const squash = o.squash || 0;
+      const top = o.y + squash * 8;
+      const height = Math.max(8, o.height - squash * 8);
+      ctx.shadowColor = "#ff9f43";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = "#ff9f43";
+      ctx.fillRect(o.x, top, o.width, height);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#ffe66d";
+      ctx.lineWidth = 3;
+      for (let i = 1; i <= 4; i++) {
+        const x = o.x + (o.width * i) / 5;
+        ctx.beginPath();
+        ctx.moveTo(x, top + 3);
+        ctx.lineTo(x - 4, top + height - 3);
+        ctx.lineTo(x + 4, top + height - 3);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#fff6c2";
+      ctx.fillRect(o.x + 6, top, o.width - 12, 5);
+      return;
+    }
+
+    if (o.type === "orb") {
+      ctx.shadowColor = "#9ef6ff";
+      ctx.shadowBlur = 16;
+      ctx.strokeStyle = "#9ef6ff";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#9ef6ff33";
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.radius - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffffaa";
+      ctx.beginPath();
+      ctx.arc(o.x - 3, o.y - 3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+
     if (o.type === "block") {
       const top = blockTop(o);
       ctx.shadowColor = "#7f94ff";
@@ -900,6 +1083,8 @@ function drawObstacles() {
       ctx.fillRect(o.x + 8, top + 14, Math.max(12, o.width - 16), 10);
       return;
     }
+
+    if (o.type !== "spike") return;
 
     ctx.fillStyle = "#ff5ea8";
     ctx.shadowColor = "#ff5ea8";
