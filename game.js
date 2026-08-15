@@ -230,8 +230,15 @@ function loop(time) {
 window.addEventListener("keydown", (event) => {
   if (["Space", "ArrowUp", "KeyW"].includes(event.code)) { event.preventDefault(); act(); }
 });
-canvas.addEventListener("pointerdown", act);
-messageEl.addEventListener("pointerdown", act);
+function tapPlay(event) {
+  event.preventDefault();
+  act();
+}
+canvas.addEventListener("pointerdown", tapPlay);
+messageEl.addEventListener("pointerdown", tapPlay);
+document.addEventListener("touchmove", (event) => {
+  if (event.target.closest(".canvas-wrap")) event.preventDefault();
+}, { passive: false });
 restartButton.addEventListener("click", () => startLevel(true));
 soundButton.addEventListener("click", () => {
   soundOn = !soundOn;

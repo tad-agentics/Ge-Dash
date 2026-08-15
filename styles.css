@@ -3,23 +3,46 @@
   font-family: Inter, ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
   background: #080b1d;
   color: #f8fbff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --chrome: 13.5rem;
 }
 
 * { box-sizing: border-box; }
 
+html, body {
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
-  min-height: 100vh;
   margin: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left));
+  overflow-x: hidden;
+  overscroll-behavior: none;
   background:
     radial-gradient(circle at 15% 15%, #293a8c 0, transparent 28%),
     radial-gradient(circle at 85% 80%, #712d87 0, transparent 30%),
     #080b1d;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.game-shell { width: min(100%, 1060px); }
+.game-shell {
+  width: min(100%, 1060px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 
 header, footer, .scoreboard {
   display: flex;
@@ -28,7 +51,8 @@ header, footer, .scoreboard {
   gap: 18px;
 }
 
-header { margin-bottom: 14px; }
+header { margin-bottom: 14px; min-width: 0; }
+header > div { min-width: 0; }
 
 .eyebrow {
   margin: 0 0 3px;
@@ -39,30 +63,34 @@ header { margin-bottom: 14px; }
   text-transform: uppercase;
 }
 
-h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 3.2rem); line-height: .95; letter-spacing: .04em; }
+h1 { margin: 0; font-size: clamp(1.4rem, 5vw, 3.2rem); line-height: .95; letter-spacing: .04em; }
 
 button {
   border: 0;
   border-radius: 999px;
   padding: 11px 18px;
+  min-height: 44px;
   font: inherit;
   font-weight: 800;
   color: #11152a;
   background: #76f7d2;
   cursor: pointer;
   box-shadow: 0 5px 0 #2d9f88;
+  touch-action: manipulation;
 }
 
 button:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d9f88; }
-.icon-button { color: #fff; background: #ffffff16; box-shadow: none; border: 1px solid #ffffff2b; }
+.icon-button { color: #fff; background: #ffffff16; box-shadow: none; border: 1px solid #ffffff2b; flex-shrink: 0; }
 
 .scoreboard {
   justify-content: flex-start;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .scoreboard div {
-  min-width: 105px;
+  min-width: 0;
+  flex: 1 1 96px;
   padding: 8px 14px;
   border-radius: 14px;
   background: #ffffff0d;
@@ -70,11 +98,15 @@ button:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d9f88; }
 }
 
 .scoreboard span { display: block; color: #aab4dc; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; }
-.scoreboard strong { font-size: 1.4rem; }
+.scoreboard strong { font-size: clamp(1.1rem, 3.5vw, 1.4rem); }
 
 .canvas-wrap {
   position: relative;
   overflow: hidden;
+  width: min(100%, calc((100dvh - var(--chrome)) * 16 / 9));
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-inline: auto;
   border: 3px solid #ffffff22;
   border-radius: 24px;
   background: #10162f;
@@ -102,7 +134,12 @@ button:active { transform: translateY(3px); box-shadow: 0 2px 0 #2d9f88; }
   transition: width .08s linear;
 }
 
-canvas { display: block; width: 100%; height: auto; touch-action: manipulation; }
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
 
 .game-message {
   position: absolute;
@@ -110,7 +147,7 @@ canvas { display: block; width: 100%; height: auto; touch-action: manipulation; 
   display: grid;
   place-content: center;
   text-align: center;
-  padding: 24px;
+  padding: clamp(12px, 4vw, 24px);
   background: #080b1d99;
   backdrop-filter: blur(3px);
 }
@@ -118,15 +155,57 @@ canvas { display: block; width: 100%; height: auto; touch-action: manipulation; 
 .game-message.hidden { display: none; }
 .game-message p { margin: 7px 0; color: #c3cae9; }
 .game-message .message-kicker { color: #76f7d2; font-weight: 900; text-transform: uppercase; letter-spacing: .15em; }
-.game-message h2 { margin: 0; font-size: clamp(2rem, 7vw, 4.5rem); }
+.game-message h2 { margin: 0; font-size: clamp(1.6rem, 7vw, 4.5rem); }
 kbd { padding: 3px 8px; border-radius: 6px; background: #fff; color: #11152a; font: inherit; font-size: .85em; }
 
 footer { margin-top: 16px; color: #b9c2e5; }
 footer p { margin: 0; }
 
-@media (max-width: 600px) {
-  body { padding: 12px; }
-  footer { align-items: stretch; flex-direction: column; }
+@media (max-width: 700px) {
+  :root { --chrome: 12.25rem; }
+
+  body { padding: max(10px, var(--safe-top)) max(10px, var(--safe-right)) max(10px, var(--safe-bottom)) max(10px, var(--safe-left)); }
+  header { margin-bottom: 10px; gap: 10px; }
+  .eyebrow { font-size: .68rem; letter-spacing: .12em; }
+  .icon-button { padding: 10px 14px; }
+  .scoreboard { gap: 8px; margin-bottom: 10px; }
+  .scoreboard div { padding: 7px 10px; border-radius: 12px; }
+  .canvas-wrap { border-width: 2px; border-radius: 16px; }
+  .level-progress { top: 8px; height: 6px; }
+  footer { align-items: stretch; flex-direction: column; gap: 10px; margin-top: 12px; }
   footer button { width: 100%; }
   .game-message p { font-size: .85rem; }
+}
+
+@media (max-width: 380px) {
+  :root { --chrome: 11.5rem; }
+  h1 { font-size: 1.35rem; }
+  .scoreboard div { flex-basis: 0; }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  :root { --chrome: 8rem; }
+
+  body {
+    place-items: stretch center;
+    padding: max(6px, var(--safe-top)) max(12px, var(--safe-right)) max(6px, var(--safe-bottom)) max(12px, var(--safe-left));
+  }
+
+  .game-shell { max-height: calc(100dvh - max(6px, var(--safe-top)) - max(6px, var(--safe-bottom))); }
+
+  header { margin-bottom: 6px; gap: 8px; }
+  .eyebrow { display: none; }
+  h1 { font-size: clamp(1.1rem, 4.5vh, 1.8rem); }
+  button { min-height: 36px; padding: 7px 14px; }
+
+  .scoreboard { margin-bottom: 6px; gap: 6px; }
+  .scoreboard div { padding: 4px 10px; }
+  .scoreboard span { font-size: .62rem; }
+  .scoreboard strong { font-size: 1rem; }
+
+  .canvas-wrap { border-radius: 14px; }
+
+  footer { margin-top: 6px; gap: 8px; }
+  footer p { display: none; }
+  footer button { width: auto; margin-left: auto; }
 }
