@@ -451,3 +451,72 @@ footer p { margin: 0; }
   .modal { padding: 8px 12px; }
   .modal-card { max-height: 94dvh; padding: 12px; }
 }
+
+/* Native fullscreen + iOS/mobile immersive fallback */
+html:fullscreen,
+html:-webkit-full-screen {
+  background: #080b1d;
+  height: 100%;
+}
+
+body.is-immersive,
+body.is-fullscreen,
+html:fullscreen body,
+html:-webkit-full-screen body {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  place-items: stretch center;
+  padding: max(8px, var(--safe-top)) max(10px, var(--safe-right)) max(8px, var(--safe-bottom)) max(10px, var(--safe-left));
+  overflow: hidden;
+}
+
+body.is-immersive .game-shell,
+body.is-fullscreen .game-shell,
+html:fullscreen .game-shell,
+html:-webkit-full-screen .game-shell {
+  width: min(100%, 1400px);
+  max-width: none;
+  height: 100%;
+  max-height: calc(100dvh - max(8px, var(--safe-top)) - max(8px, var(--safe-bottom)));
+  justify-content: center;
+}
+
+body.is-immersive .canvas-wrap,
+body.is-fullscreen .canvas-wrap,
+html:fullscreen .canvas-wrap,
+html:-webkit-full-screen .canvas-wrap {
+  width: min(100%, calc((100dvh - var(--chrome)) * 16 / 9));
+  flex: 0 1 auto;
+  border-radius: 18px;
+}
+
+body.is-immersive .eyebrow,
+body.is-fullscreen .eyebrow,
+html:fullscreen .eyebrow,
+html:-webkit-full-screen .eyebrow {
+  display: none;
+}
+
+@media (orientation: landscape) {
+  body.is-immersive,
+  body.is-fullscreen,
+  html:fullscreen,
+  html:-webkit-full-screen {
+    --chrome: 8.5rem;
+  }
+
+  body.is-immersive,
+  body.is-fullscreen,
+  html:fullscreen body,
+  html:-webkit-full-screen body {
+    padding: max(4px, var(--safe-top)) max(8px, var(--safe-right)) max(4px, var(--safe-bottom)) max(8px, var(--safe-left));
+  }
+
+  body.is-immersive footer p,
+  body.is-fullscreen footer p,
+  html:fullscreen footer p,
+  html:-webkit-full-screen footer p {
+    display: none;
+  }
+}

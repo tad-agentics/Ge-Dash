@@ -9,6 +9,8 @@ const levelProgressEl = document.querySelector("#levelProgress");
 const messageEl = document.querySelector("#gameMessage");
 const restartButton = document.querySelector("#restartButton");
 const soundButton = document.querySelector("#soundButton");
+const fullscreenButton = document.querySelector("#fullscreenButton");
+const gameShell = document.querySelector(".game-shell");
 const playerNameDisplay = document.querySelector("#playerNameDisplay");
 const playerNameInput = document.querySelector("#playerNameInput");
 const characterButton = document.querySelector("#characterButton");
@@ -1239,6 +1241,101 @@ soundButton.addEventListener("click", () => {
   soundOn = !soundOn;
   soundButton.textContent = `Sound: ${soundOn ? "on" : "off"}`;
 });
+
+function getFullscreenElement() {
+  return (
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.msFullscreenElement ||
+    null
+  );
+}
+
+function canUseFullscreenApi() {
+  const target = document.documentElement;
+  return Boolean(
+    target.requestFullscreen ||
+      target.webkitRequestFullscreen ||
+      target.webkitRequestFullScreen ||
+      target.msRequestFullscreen
+  );
+}
+
+function isImmersive() {
+  return document.body.classList.contains("is-immersive") || Boolean(getFullscreenElement());
+}
+
+function syncFullscreenButton() {
+  const active = isImmersive();
+  fullscreenButton.textContent = active ? "Exit full" : "Full";
+  fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
+  fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  document.body.classList.toggle("is-fullscreen", active);
+}
+
+async function enterFullscreen() {
+  const target = document.documentElement;
+  try {
+    if (target.requestFullscreen) {
+      try {
+        await target.requestFullscreen({ navigationUI: "hide" });
+      } catch {
+        await target.requestFullscreen();
+      }
+    } else if (target.webkitRequestFullscreen) {
+      target.webkitRequestFullscreen();
+    } else if (target.webkitRequestFullScreen) {
+      target.webkitRequestFullScreen();
+    } else if (target.msRequestFullscreen) {
+      target.msRequestFullscreen();
+    } else {
+      throw new Error("Fullscreen API unavailable");
+    }
+  } catch {
+    document.body.classList.add("is-immersive");
+    gameShell.scrollIntoView({ block: "center", inline: "nearest" });
+  }
+  syncFullscreenButton();
+}
+
+async function exitFullscreen() {
+  document.body.classList.remove("is-immersive");
+  try {
+    if (getFullscreenElement()) {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      else if (document.msExitFullscreen) document.msExitFullscreen();
+    }
+  } catch {
+    /* ignore */
+  }
+  syncFullscreenButton();
+}
+
+async function toggleFullscreen() {
+  if (isImmersive()) await exitFullscreen();
+  else await enterFullscreen();
+}
+
+fullscreenButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  toggleFullscreen();
+});
+document.addEventListener("fullscreenchange", syncFullscreenButton);
+document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+document.addEventListener("MSFullscreenChange", syncFullscreenButton);
+window.addEventListener("keydown", (event) => {
+  if (event.code === "KeyF" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    if (event.target === playerNameInput) return;
+    event.preventDefault();
+    toggleFullscreen();
+  }
+});
+if (!canUseFullscreenApi()) {
+  fullscreenButton.title = "Immersive view (best available on this device)";
+}
+syncFullscreenButton();
+
 characterButton.addEventListener("click", openCharacterModal);
 leaderboardButton.addEventListener("click", openLeaderboardModal);
 closeCharacter.addEventListener("click", () => closeModal(characterModal));

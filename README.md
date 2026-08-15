@@ -15,6 +15,8 @@ attempt is undone).
 ## Play
 
 Open `index.html` in a browser. Press Space, click, or tap to jump.
+Use **Full** (or press `F`) for fullscreen; on iPhones it uses an immersive
+fallback when the browser blocks the Fullscreen API.
 
 The game uses only HTML, CSS, and JavaScript, so there are no packages to install.
 
