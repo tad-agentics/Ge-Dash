@@ -209,21 +209,26 @@ function levelDifficulty() {
 
 function scheduleNextBird() {
   const difficulty = levelDifficulty();
-  if (difficulty < 0.04) {
+  // Keep early levels mostly bird-free; appear as occasional mid/late hazards.
+  if (difficulty < 0.12) {
     distanceToBird = Number.POSITIVE_INFINITY;
     return;
   }
-  const minGap = 520 - difficulty * 260;
-  const spread = 640 - difficulty * 380;
-  distanceToBird = minGap + Math.random() * Math.max(120, spread);
+  const minGap = 1100 - difficulty * 350;
+  const spread = 1600 - difficulty * 700;
+  distanceToBird = minGap + Math.random() * Math.max(400, spread);
+  // Sometimes skip an extra beat so packs don't feel constant.
+  if (Math.random() > 0.35 + difficulty * 0.4) {
+    distanceToBird += 500 + Math.random() * 700;
+  }
 }
 
 function spawnBird() {
   const difficulty = levelDifficulty();
-  const flockChance = Math.max(0, (difficulty - 0.25) * 0.7);
-  const count = Math.random() < flockChance ? (Math.random() < difficulty * 0.45 ? 3 : 2) : 1;
+  const flockChance = Math.max(0, (difficulty - 0.45) * 0.45);
+  const count = Math.random() < flockChance ? (Math.random() < difficulty * 0.3 ? 3 : 2) : 1;
   const baseY = groundY - (95 + Math.random() * (110 + difficulty * 90));
-  const dive = Math.random() < difficulty * 0.4;
+  const dive = Math.random() < difficulty * 0.35;
   for (let i = 0; i < count; i++) {
     birds.push({
       x: W + 50 + i * 34,
