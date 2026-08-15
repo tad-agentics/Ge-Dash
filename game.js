@@ -57,7 +57,7 @@ const WORLDS = [
     name: "Step Towers",
     tagline: "Climb time",
     levels: 8,
-    teach: "Land on the bright block tops. Dark faces are danger!",
+    teach: "Land on the bright block tops to climb. Bumping the pillar is safe!",
     allow: { spikes: true, stairs: true, orbs: false, pits: false, birds: false },
   },
   {
@@ -1027,7 +1027,7 @@ function update(dt, elapsedSeconds) {
   // Keep standing on platforms after they scroll under the player.
   if (player.velocityY >= 0) resolvePlatformLanding();
 
-  if (obstacles.some(overlapsSpike) || obstacles.some(overlapsBlockBody)) {
+  if (obstacles.some(overlapsSpike)) {
     endGame();
     return;
   }
@@ -1319,18 +1319,14 @@ function drawObstacles() {
       const top = blockTop(o);
       ctx.shadowColor = "#7f94ff";
       ctx.shadowBlur = 14;
-      // Dangerous face
-      const face = ctx.createLinearGradient(o.x, top, o.x, groundY);
-      face.addColorStop(0, "#2a335f");
-      face.addColorStop(1, "#151b3a");
-      ctx.fillStyle = face;
+      const body = ctx.createLinearGradient(o.x, top, o.x, groundY);
+      body.addColorStop(0, "#4b5bb8");
+      body.addColorStop(1, "#2a335f");
+      ctx.fillStyle = body;
       ctx.fillRect(o.x, top, o.width, o.height);
       ctx.shadowBlur = 0;
-      // Hazard stripes on face
-      ctx.fillStyle = "#ff5ea833";
-      for (let y = top + 18; y < groundY - 8; y += 14) {
-        ctx.fillRect(o.x + 4, y, o.width - 8, 5);
-      }
+      ctx.fillStyle = "#ffffff18";
+      ctx.fillRect(o.x + 8, top + 16, Math.max(12, o.width - 16), o.height - 28);
       // Safe landing top
       ctx.fillStyle = "#76f7d2";
       ctx.fillRect(o.x - 2, top - 2, o.width + 4, 10);
