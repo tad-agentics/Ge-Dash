@@ -12,6 +12,16 @@ Open `index.html` in a browser. Press Space, click, or tap to jump.
 
 The game uses only HTML, CSS, and JavaScript, so there are no packages to install.
 
+## Customize
+
+- Open **Character** to pick one of 6 quick heroes, or mix your own:
+  - 6 shapes: square, circle, triangle, diamond, hexagon, star
+  - 6 faces: smile, wink, surprised, cool, silly, determined
+  - 6 colors: teal, pink, yellow, sky, lavender, orange
+- Edit your player name (saved on this device).
+- Open **Board** to see the local top-10 leaderboard. Scores are saved when a
+  run ends or the campaign is finished.
+
 ## Ideas to build together
 
 - Draw a new face for the player.

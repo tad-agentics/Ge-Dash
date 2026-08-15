@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Khoi-Dash</title>
-    <link rel="stylesheet" href="styles.css?v=mobile1" />
+    <link rel="stylesheet" href="styles.css?v=custom1" />
   </head>
   <body>
     <main class="game-shell">
@@ -17,10 +17,15 @@
           <p class="eyebrow">A game by Dad &amp; Sup</p>
           <h1>KHOI-DASH</h1>
         </div>
-        <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">Sound: on</button>
+        <div class="header-actions">
+          <button id="characterButton" class="icon-button" type="button">Character</button>
+          <button id="leaderboardButton" class="icon-button" type="button">Board</button>
+          <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">Sound: on</button>
+        </div>
       </header>
 
       <section class="scoreboard" aria-label="Game scores">
+        <div><span>Player</span><strong id="playerNameDisplay">Dash</strong></div>
         <div><span>Level</span><strong><span id="level">1</span>/62</strong></div>
         <div><span>Score</span><strong id="score">0</strong></div>
         <div><span>Best</span><strong id="bestScore">0</strong></div>
@@ -41,6 +46,60 @@
         <button id="restartButton" type="button">Restart level</button>
       </footer>
     </main>
-    <script src="game.js?v=mobile1"></script>
+
+    <div id="characterModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="characterTitle">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="characterTitle">Build your dash hero</h2>
+          <button id="closeCharacter" class="icon-button" type="button" aria-label="Close character editor">Close</button>
+        </div>
+
+        <label class="name-field">
+          <span>Your name</span>
+          <input id="playerNameInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Enter a name" />
+        </label>
+
+        <div class="preview-row">
+          <canvas id="characterPreview" width="120" height="120" aria-label="Character preview"></canvas>
+          <p id="characterSummary">Square · Smile · Teal</p>
+        </div>
+
+        <fieldset class="option-group">
+          <legend>Quick characters</legend>
+          <div id="presetOptions" class="option-grid presets" role="listbox" aria-label="Character presets"></div>
+        </fieldset>
+
+        <fieldset class="option-group">
+          <legend>Shape</legend>
+          <div id="shapeOptions" class="option-grid" role="listbox" aria-label="Geometry shapes"></div>
+        </fieldset>
+
+        <fieldset class="option-group">
+          <legend>Face</legend>
+          <div id="faceOptions" class="option-grid" role="listbox" aria-label="Face expressions"></div>
+        </fieldset>
+
+        <fieldset class="option-group">
+          <legend>Color</legend>
+          <div id="colorOptions" class="option-grid colors" role="listbox" aria-label="Character colors"></div>
+        </fieldset>
+
+        <button id="saveCharacter" type="button">Save &amp; play</button>
+      </div>
+    </div>
+
+    <div id="leaderboardModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="leaderboardTitle">Leaderboard</h2>
+          <button id="closeLeaderboard" class="icon-button" type="button" aria-label="Close leaderboard">Close</button>
+        </div>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+        <p id="leaderboardEmpty" class="leaderboard-empty hidden">No scores yet — finish a run to claim the top spot!</p>
+        <button id="clearLeaderboard" class="ghost-button" type="button">Clear board</button>
+      </div>
+    </div>
+
+    <script src="game.js?v=custom1"></script>
   </body>
 </html>
