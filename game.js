@@ -34,6 +34,8 @@ const TOTAL_LEVELS = 62;
 const LEVEL_DURATION = 20;
 const POINTS_PER_SECOND = 10;
 const LEADERBOARD_LIMIT = 10;
+const GATE_LEAD_TIME = 2.4;
+const WARP_DURATION = 0.9;
 const STORAGE = {
   best: "khoiDashBest",
   unlocked: "khoiDashUnlocked",
@@ -77,10 +79,13 @@ const PRESETS = [
   { id: "nova", name: "Nova", shape: "star", face: "silly", color: "orange" },
 ];
 
-const player = { x: 150, y: groundY - 46, size: 46, velocityY: 0, rotation: 0 };
+const player = { x: 150, y: groundY - 46, size: 46, velocityY: 0, rotation: 0, scale: 1, alpha: 1 };
 let jumpsUsed = 0;
 let obstacles = [];
 let particles = [];
+let suctionParticles = [];
+let quantumGate = null;
+let warpTime = 0;
 let state = "ready";
 let score = 0;
 let levelTime = 0;
@@ -194,11 +199,21 @@ function beep(frequency, duration, volume = 0.05) {
 function startLevel(resetScore = false) {
   obstacles = [];
   particles = [];
+  suctionParticles = [];
+  quantumGate = null;
+  warpTime = 0;
   if (resetScore) score = 0;
   levelTime = 0;
   speed = 6.5 + ((currentLevel - 1) / (TOTAL_LEVELS - 1)) * 5.5;
   distanceToNext = 430;
-  Object.assign(player, { y: groundY - player.size, velocityY: 0, rotation: 0 });
+  Object.assign(player, {
+    x: 150,
+    y: groundY - player.size,
+    velocityY: 0,
+    rotation: 0,
+    scale: 1,
+    alpha: 1,
+  });
   jumpsUsed = 0;
   scoreEl.textContent = Math.floor(score);
   levelEl.textContent = currentLevel;
@@ -210,7 +225,8 @@ function startLevel(resetScore = false) {
 function act() {
   if (characterModal.classList.contains("hidden") === false) return;
   if (leaderboardModal.classList.contains("hidden") === false) return;
-  if (state !== "playing") return startLevel(["ready", "over", "finished"].includes(state));
+  if (state === "warping") return;
+  if (state !== "playing") return startLevel(["ready", "over", "complete", "finished"].includes(state));
   if (jumpsUsed < 2) {
     player.velocityY = jumpsUsed === 0 ? -17.2 : -14.5;
     jumpsUsed += 1;
@@ -225,6 +241,120 @@ function act() {
       });
     }
   }
+}
+
+function spawnQuantumGate() {
+  const travel = Math.max(420, speed * 60 * 1.35);
+  quantumGate = {
+    x: player.x + player.size / 2 + travel,
+    cy: groundY - 110,
+    rx: 42,
+    ry: 110,
+    spin: 0,
+    open: 0,
+    pulse: 0,
+  };
+  distanceToNext = Number.POSITIVE_INFINITY;
+  obstacles = obstacles.filter((o) => o.x + o.width < quantumGate.x - 120);
+  beep(420, 0.12, 0.06);
+  beep(640, 0.18, 0.05);
+}
+
+function spawnSuctionBurst(count, strength = 1) {
+  if (!quantumGate) return;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 40 + Math.random() * 160 * strength;
+    suctionParticles.push({
+      x: quantumGate.x + Math.cos(angle) * radius,
+      y: quantumGate.cy + Math.sin(angle) * radius * 0.72,
+      angle,
+      radius,
+      spin: (Math.random() < 0.5 ? -1 : 1) * (0.04 + Math.random() * 0.08),
+      size: 2 + Math.random() * 5,
+      life: 0.55 + Math.random() * 0.7,
+      hue: Math.random(),
+    });
+  }
+}
+
+function beginWarp() {
+  if (state === "warping") return;
+  state = "warping";
+  warpTime = 0;
+  jumpsUsed = 2;
+  player.velocityY = 0;
+  obstacles = [];
+  spawnSuctionBurst(28, 1.2);
+  beep(520, 0.1, 0.06);
+  beep(760, 0.12, 0.06);
+  beep(980, 0.2, 0.07);
+}
+
+function updateSuctionParticles(dt) {
+  if (!quantumGate) {
+    suctionParticles = [];
+    return;
+  }
+  suctionParticles.forEach((p) => {
+    p.angle += p.spin * dt;
+    p.radius = Math.max(2, p.radius - (8 + p.radius * 0.12) * dt);
+    p.x = quantumGate.x + Math.cos(p.angle) * p.radius;
+    p.y = quantumGate.cy + Math.sin(p.angle) * p.radius * 0.68;
+    p.life -= 0.018 * dt;
+  });
+  suctionParticles = suctionParticles.filter((p) => p.life > 0 && p.radius > 2);
+}
+
+function updateGate(dt, elapsedSeconds) {
+  if (!quantumGate) return;
+  quantumGate.spin += 0.08 * dt;
+  quantumGate.pulse += elapsedSeconds * 6;
+  quantumGate.open = Math.min(1, quantumGate.open + elapsedSeconds * 2.2);
+  quantumGate.x -= speed * dt;
+
+  const playerCenterX = player.x + player.size / 2;
+  const playerCenterY = player.y + player.size / 2;
+  const dx = quantumGate.x - playerCenterX;
+  const pullRange = 340;
+  const proximity = Math.max(0, 1 - Math.max(0, dx) / pullRange);
+
+  if (dx > -player.size * 0.2) {
+    const runBoost = 2.2 + proximity * 7.5;
+    player.x += runBoost * dt;
+    player.y += (quantumGate.cy - playerCenterY) * proximity * 0.06 * dt;
+    if (proximity > 0.15 && Math.random() < proximity * 0.55 * dt) spawnSuctionBurst(2 + Math.floor(proximity * 3), 0.7 + proximity);
+    if (proximity > 0.4 && Math.floor(quantumGate.pulse * 3) !== Math.floor((quantumGate.pulse - elapsedSeconds * 6) * 3)) {
+      beep(280 + proximity * 620, 0.035, 0.02);
+    }
+  }
+
+  if (dx < player.size * 0.3 && Math.abs(playerCenterY - quantumGate.cy) < quantumGate.ry * 0.9) {
+    beginWarp();
+  }
+}
+
+function updateWarp(dt, elapsedSeconds) {
+  if (!quantumGate) {
+    completeLevel();
+    return;
+  }
+  warpTime += elapsedSeconds;
+  quantumGate.spin += 0.22 * dt;
+  quantumGate.pulse += elapsedSeconds * 10;
+  quantumGate.x -= speed * 0.25 * dt;
+
+  const targetX = quantumGate.x - player.size / 2;
+  const targetY = quantumGate.cy - player.size / 2;
+  player.x += (targetX - player.x) * Math.min(1, 0.18 * dt);
+  player.y += (targetY - player.y) * Math.min(1, 0.18 * dt);
+  player.rotation += 0.35 * dt;
+  player.scale = Math.max(0.05, 1 - warpTime / WARP_DURATION);
+  player.alpha = Math.max(0, 1 - (warpTime / WARP_DURATION) * 1.1);
+  if (Math.random() < 0.8 * dt) spawnSuctionBurst(3, 1.4);
+  updateSuctionParticles(dt);
+
+  if (warpTime >= WARP_DURATION) completeLevel();
 }
 
 function endGame() {
@@ -243,6 +373,10 @@ function endGame() {
 function completeLevel() {
   state = "complete";
   obstacles = [];
+  suctionParticles = [];
+  quantumGate = null;
+  player.scale = 1;
+  player.alpha = 1;
   beep(880, 0.25, 0.07);
   const finalScore = Math.floor(score);
   best = Math.max(best, finalScore);
@@ -258,7 +392,7 @@ function completeLevel() {
     currentLevel += 1;
     localStorage.setItem(STORAGE.unlocked, currentLevel);
     levelEl.textContent = currentLevel;
-    messageEl.innerHTML = `<p class="message-kicker">Level ${completedLevel} complete!</p><h2>Next: Level ${currentLevel}</h2><p>Tap, click, or press <kbd>Space</kbd> to continue</p>`;
+    messageEl.innerHTML = `<p class="message-kicker">Quantum gate cleared!</p><h2>Level ${completedLevel} → ${currentLevel}</h2><p>Tap, click, or press <kbd>Space</kbd> to dash on</p>`;
   }
   messageEl.classList.remove("hidden");
 }
@@ -279,7 +413,12 @@ function overlapsSpike(o) {
 }
 
 function update(dt, elapsedSeconds) {
+  if (state === "warping") {
+    updateWarp(dt, elapsedSeconds);
+    return;
+  }
   if (state !== "playing") return;
+
   player.velocityY += 0.92 * dt;
   player.y += player.velocityY * dt;
   if (player.y >= groundY - player.size) {
@@ -291,8 +430,11 @@ function update(dt, elapsedSeconds) {
     player.rotation += 0.09 * dt;
   }
 
-  distanceToNext -= speed * dt;
-  if (distanceToNext <= 0) spawnObstacle();
+  if (!quantumGate) {
+    distanceToNext -= speed * dt;
+    if (distanceToNext <= 0) spawnObstacle();
+  }
+
   obstacles.forEach((o) => {
     o.x -= speed * dt;
   });
@@ -309,11 +451,18 @@ function update(dt, elapsedSeconds) {
     p.life -= 0.025 * dt;
   });
   particles = particles.filter((p) => p.life > 0);
-  levelTime += elapsedSeconds;
-  score += POINTS_PER_SECOND * elapsedSeconds;
-  scoreEl.textContent = Math.floor(score);
-  levelProgressEl.style.width = `${Math.min(100, (levelTime / LEVEL_DURATION) * 100)}%`;
-  if (levelTime >= LEVEL_DURATION) completeLevel();
+
+  if (!quantumGate) {
+    levelTime += elapsedSeconds;
+    score += POINTS_PER_SECOND * elapsedSeconds;
+    scoreEl.textContent = Math.floor(score);
+    levelProgressEl.style.width = `${Math.min(100, (levelTime / LEVEL_DURATION) * 100)}%`;
+    if (levelTime >= LEVEL_DURATION - GATE_LEAD_TIME) spawnQuantumGate();
+  } else {
+    levelProgressEl.style.width = "100%";
+    updateGate(dt, elapsedSeconds);
+    updateSuctionParticles(dt);
+  }
 }
 
 function drawBackground(time) {
@@ -499,8 +648,10 @@ function paintCharacter(target, options, size = 46, withGlow = true) {
 
 function drawPlayer() {
   ctx.save();
+  ctx.globalAlpha = player.alpha;
   ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
   ctx.rotate(player.rotation);
+  ctx.scale(player.scale, player.scale * (0.85 + player.scale * 0.15));
   paintCharacter(ctx, character, player.size, true);
   ctx.restore();
 }
@@ -524,6 +675,133 @@ function drawObstacles() {
   ctx.shadowBlur = 0;
 }
 
+function drawSuctionParticles() {
+  suctionParticles.forEach((p) => {
+    const tint = p.hue > 0.5 ? "#9ef6ff" : "#c9a0ff";
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = tint;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (0.4 + (1 - p.radius / 180)), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawQuantumGate(time) {
+  if (!quantumGate) return;
+  const { x, cy, rx, ry, spin, open, pulse } = quantumGate;
+  const openRx = rx * (0.55 + open * 0.45);
+  const openRy = ry * (0.7 + open * 0.3);
+  const suck = state === "warping" ? 1 : Math.max(0, 1 - Math.max(0, x - (player.x + player.size)) / 340);
+
+  ctx.save();
+  ctx.translate(x, cy);
+
+  // Pull streaks / vacuum lines
+  ctx.globalAlpha = 0.18 + suck * 0.35;
+  ctx.strokeStyle = "#9ef6ff";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 10; i++) {
+    const y = -openRy + (openRy * 2 * i) / 9;
+    const length = 30 + suck * 90 + Math.sin(pulse + i) * 12;
+    ctx.beginPath();
+    ctx.moveTo(-length, y * 0.85);
+    ctx.quadraticCurveTo(-length * 0.35, y, 0, y * 0.25);
+    ctx.stroke();
+  }
+
+  // Outer glow
+  const glow = ctx.createRadialGradient(0, 0, 8, 0, 0, openRy * 1.15);
+  glow.addColorStop(0, `rgba(158, 246, 255, ${0.35 + suck * 0.35})`);
+  glow.addColorStop(0.45, `rgba(127, 148, 255, ${0.18 + suck * 0.2})`);
+  glow.addColorStop(1, "rgba(8, 11, 29, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, openRx * 1.8, openRy * 1.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Event horizon
+  ctx.globalAlpha = 0.9;
+  const core = ctx.createRadialGradient(0, 0, 2, 0, 0, openRx);
+  core.addColorStop(0, "#ffffff");
+  core.addColorStop(0.2, "#d7b4ff");
+  core.addColorStop(0.55, "#2a1b6a");
+  core.addColorStop(1, "#050714");
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, openRx * 0.72, openRy * 0.78, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Spinning quantum rings
+  for (let ring = 0; ring < 3; ring++) {
+    ctx.globalAlpha = 0.55 + ring * 0.12;
+    ctx.strokeStyle = ring === 1 ? "#76f7d2" : ring === 2 ? "#ffe66d" : "#7f94ff";
+    ctx.lineWidth = 3 - ring * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, openRx * (0.85 + ring * 0.18), openRy * (0.9 + ring * 0.08), spin * (ring % 2 === 0 ? 1 : -1.3) + ring, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Hex lattice ticks
+  ctx.globalAlpha = 0.7;
+  ctx.strokeStyle = "#ffffffaa";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 6; i++) {
+    const angle = spin * 1.4 + (Math.PI / 3) * i;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, openRx * 1.05, openRy, angle * 0.15, angle, angle + 0.45);
+    ctx.stroke();
+  }
+
+  // Inward pulse ripples
+  ctx.globalAlpha = 0.35 + suck * 0.4;
+  ctx.strokeStyle = "#9ef6ff";
+  for (let i = 0; i < 3; i++) {
+    const t = (pulse * 0.2 + i / 3) % 1;
+    const ripple = 1.35 - t * 0.85;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = (1 - t) * (0.25 + suck * 0.45);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, openRx * ripple, openRy * ripple, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Gate posts
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#d7defa";
+  ctx.shadowColor = "#7f94ff";
+  ctx.shadowBlur = 18;
+  ctx.fillRect(-8, -openRy - 18, 16, openRy * 2 + 36);
+  ctx.fillStyle = "#76f7d2";
+  ctx.fillRect(-4, -openRy - 10, 8, openRy * 2 + 20);
+  ctx.shadowBlur = 0;
+
+  // Floating label spark
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = "#9ef6ff";
+  ctx.font = "700 14px ui-rounded, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("QUANTUM GATE", 0, -openRy - 28);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // Ambient suck dust drifting from left
+  if (suck > 0.05) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(158, 246, 255, ${0.12 + suck * 0.25})`;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 8; i++) {
+      const y = cy - openRy + ((time * 0.05 + i * 37) % (openRy * 2));
+      const len = 40 + suck * 70;
+      ctx.beginPath();
+      ctx.moveTo(x - 40 - len, y);
+      ctx.lineTo(x - 18, cy + (y - cy) * 0.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
 function draw(time) {
   drawBackground(time);
   const particleColor = getColor(character.color);
@@ -534,7 +812,18 @@ function draw(time) {
   });
   ctx.globalAlpha = 1;
   drawObstacles();
+  drawSuctionParticles();
+  drawQuantumGate(time);
   drawPlayer();
+  if (state === "warping" && quantumGate) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.85, warpTime / WARP_DURATION);
+    ctx.fillStyle = "#f4f7ff";
+    ctx.beginPath();
+    ctx.ellipse(quantumGate.x, quantumGate.cy, 18 + warpTime * 40, 24 + warpTime * 50, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function loop(time) {

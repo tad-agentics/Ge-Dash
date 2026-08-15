@@ -5,6 +5,8 @@ A tiny one-button platform game made for Dad and Sup.
 The campaign has 62 equally timed levels. Each level lasts 20 seconds, while
 speed, obstacle spacing, and spike clusters become progressively harder. The
 score increases at a constant 10 points for every second the player survives.
+Near the end of every level a **quantum gate** appears — dash into it and get
+pulled through with a vortex suck to reach the next level.
 
 ## Play
 
