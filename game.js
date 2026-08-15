@@ -729,6 +729,8 @@ function spawnStaircase() {
   const spikePairWidth = spikeWidth * 2;
   const spikeHeight = 38 + difficulty * 6;
   const scale = info.worldIndex <= 1 && info.levelInWorld <= 3 ? 0.82 : 1;
+  // Step Towers needs a wider pillar gap so a normal jump can clear the spikes.
+  const betweenGap = info.worldIndex === 1 ? 118 + difficulty * 10 : 92 + difficulty * 8;
   const steps = [
     { width: 68 * scale, height: 70 * scale },
     { width: 96 * scale, height: 128 * scale },
@@ -738,14 +740,15 @@ function spawnStaircase() {
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     obstacles.push({ type: "block", x, width: step.width, height: step.height });
-    x += step.width + 6;
+    x += step.width;
     if (i < steps.length - 1) {
-      obstacles.push({ type: "spike", x, width: spikePairWidth, height: spikeHeight });
-      x += spikePairWidth + 6;
+      const spikeX = x + (betweenGap - spikePairWidth) / 2;
+      obstacles.push({ type: "spike", x: spikeX, width: spikePairWidth, height: spikeHeight });
+      x += betweenGap;
     }
   }
 
-  distanceToNext = 360 + Math.random() * (240 - difficulty * 80);
+  distanceToNext = 380 + Math.random() * (240 - difficulty * 80);
 }
 
 function spawnOrbBridge() {
