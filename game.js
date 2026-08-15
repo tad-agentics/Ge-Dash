@@ -37,6 +37,7 @@ const POINTS_PER_SECOND = 10;
 const CLEAR_BONUS = 50;
 const CLEAN_BONUS = 100;
 const BIRD_CLEAN_BONUS = 50;
+const STAR_MULTIPLIERS = [2, 2, 3];
 const LEADERBOARD_LIMIT = 10;
 const GATE_LEAD_TIME = 2.2;
 const WARP_DURATION = 0.9;
@@ -144,13 +145,18 @@ const player = { x: 150, y: groundY - 46, size: 46, velocityY: 0, rotation: 0, s
 let jumpsUsed = 0;
 let obstacles = [];
 let birds = [];
+let pickups = [];
+let floatTexts = [];
 let particles = [];
 let suctionParticles = [];
 let quantumGate = null;
 let warpTime = 0;
 let distanceToBird = 500;
+let distanceToStar = 520;
 let levelStartScore = 0;
 let birdHitFlash = 0;
+let scoreFlash = 0;
+let lastMultiplier = 1;
 let deathsThisLevel = 0;
 let birdHitsThisLevel = 0;
 let orbLandsThisLevel = 0;
@@ -349,6 +355,115 @@ function beep(frequency, duration, volume = 0.05) {
   oscillator.stop(audioContext.currentTime + duration);
 }
 
+function scheduleNextStar() {
+  distanceToStar = 620 + Math.random() * 980;
+}
+
+function spawnScoreStar() {
+  const y = groundY - (70 + Math.random() * 170);
+  pickups.push({
+    type: "star",
+    x: W + 36,
+    y,
+    baseY: y,
+    r: 15,
+    spin: Math.random() * Math.PI,
+    bob: Math.random() * Math.PI * 2,
+  });
+  scheduleNextStar();
+}
+
+function collectScoreStars() {
+  const cx = player.x + player.size / 2;
+  const cy = player.y + player.size / 2;
+  pickups = pickups.filter((star) => {
+    const dx = cx - star.x;
+    const dy = cy - star.y;
+    const reach = player.size * 0.55 + star.r;
+    if (dx * dx + dy * dy <= reach * reach) {
+      const mult = STAR_MULTIPLIERS[Math.floor(Math.random() * STAR_MULTIPLIERS.length)];
+      const before = Math.floor(score);
+      score = Math.floor(Math.max(before, 5) * mult);
+      lastMultiplier = mult;
+      scoreFlash = 1.2;
+      scoreEl.textContent = Math.floor(score);
+      floatTexts.push({
+        x: cx,
+        y: cy - 20,
+        text: `×${mult}!`,
+        life: 1.1,
+        vy: -1.4,
+      });
+      beep(660, 0.07, 0.06);
+      beep(990, 0.12, 0.07);
+      for (let i = 0; i < 12; i++) {
+        particles.push({
+          x: star.x,
+          y: star.y,
+          vx: (Math.random() - 0.5) * 7,
+          vy: -Math.random() * 5 - 1,
+          life: 0.7 + Math.random() * 0.4,
+          starBit: true,
+        });
+      }
+      return false;
+    }
+    return star.x + star.r > -30;
+  });
+}
+
+function updatePickups(dt) {
+  pickups.forEach((star) => {
+    star.x -= speed * dt;
+    star.spin += 0.12 * dt;
+    star.bob += 0.1 * dt;
+    star.y = star.baseY + Math.sin(star.bob) * 6;
+  });
+  collectScoreStars();
+}
+
+function updateFloatTexts(dt, elapsedSeconds) {
+  floatTexts.forEach((item) => {
+    item.y += item.vy * dt;
+    item.life -= elapsedSeconds;
+  });
+  floatTexts = floatTexts.filter((item) => item.life > 0);
+}
+
+function drawScoreStars() {
+  pickups.forEach((star) => {
+    ctx.save();
+    ctx.translate(star.x, star.y);
+    ctx.rotate(star.spin);
+    ctx.shadowColor = "#ffe66d";
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = "#ffe66d";
+    drawShapePath(ctx, star.r * 2, "star");
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#fff6c2";
+    drawShapePath(ctx, star.r * 1.15, "star");
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawFloatTexts() {
+  floatTexts.forEach((item) => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, item.life));
+    ctx.fillStyle = "#ffe66d";
+    ctx.strokeStyle = "#11152a";
+    ctx.lineWidth = 4;
+    ctx.font = "900 28px ui-rounded, sans-serif";
+    ctx.textAlign = "center";
+    ctx.strokeText(item.text, item.x, item.y);
+    ctx.fillText(item.text, item.x, item.y);
+    ctx.restore();
+  });
+  ctx.globalAlpha = 1;
+}
+
 function scheduleNextBird() {
   const info = currentWorldInfo();
   if (!info.world.allow.birds) {
@@ -426,12 +541,14 @@ function bounceToLevelStart() {
 
   birds = [];
   obstacles = [];
+  pickups = [];
   suctionParticles = [];
   quantumGate = null;
   warpTime = 0;
   levelTime = 0;
   score = levelStartScore;
   scheduleNextBird();
+  scheduleNextStar();
   distanceToNext = 320 + Math.random() * 140;
   Object.assign(player, {
     x: PLAYER_START_X,
@@ -454,11 +571,14 @@ function startLevel(resetScore = false) {
   }
   obstacles = [];
   birds = [];
+  pickups = [];
+  floatTexts = [];
   particles = [];
   suctionParticles = [];
   quantumGate = null;
   warpTime = 0;
   birdHitFlash = 0;
+  scoreFlash = 0;
   if (resetScore) {
     score = 0;
     deathsThisLevel = 0;
@@ -479,6 +599,7 @@ function startLevel(resetScore = false) {
   if (info.worldIndex === 1) speed *= 0.86;
   distanceToNext = 400;
   scheduleNextBird();
+  scheduleNextStar();
   Object.assign(player, {
     x: PLAYER_START_X,
     y: groundY - player.size,
@@ -535,7 +656,9 @@ function spawnQuantumGate() {
   };
   distanceToNext = Number.POSITIVE_INFINITY;
   distanceToBird = Number.POSITIVE_INFINITY;
+  distanceToStar = Number.POSITIVE_INFINITY;
   birds = [];
+  pickups = [];
   obstacles = obstacles.filter((o) => o.x + o.width < quantumGate.x - 120);
   beep(420, 0.12, 0.06);
   beep(640, 0.18, 0.05);
@@ -567,6 +690,7 @@ function beginWarp() {
   player.velocityY = 0;
   obstacles = [];
   birds = [];
+  pickups = [];
   spawnSuctionBurst(28, 1.2);
   beep(520, 0.1, 0.06);
   beep(760, 0.12, 0.06);
@@ -1021,6 +1145,8 @@ function update(dt, elapsedSeconds) {
     if (distanceToNext <= 0) spawnObstacle();
     distanceToBird -= speed * dt;
     if (distanceToBird <= 0) spawnBird();
+    distanceToStar -= speed * dt;
+    if (distanceToStar <= 0) spawnScoreStar();
   }
 
   obstacles.forEach((o) => {
@@ -1047,6 +1173,9 @@ function update(dt, elapsedSeconds) {
   }
 
   updateBirds(dt);
+  updatePickups(dt);
+  updateFloatTexts(dt, elapsedSeconds);
+  if (scoreFlash > 0) scoreFlash = Math.max(0, scoreFlash - elapsedSeconds * 1.6);
 
   particles.forEach((p) => {
     p.x += p.vx * dt;
@@ -1065,6 +1194,7 @@ function update(dt, elapsedSeconds) {
   } else {
     levelProgressEl.style.width = "100%";
     birds = [];
+    pickups = [];
     updateGate(dt, elapsedSeconds);
     updateSuctionParticles(dt);
   }
@@ -1638,6 +1768,11 @@ function draw(time) {
       ctx.rotate(p.life * 4);
       ctx.fillRect(-2, -5, 4, 10);
       ctx.restore();
+    } else if (p.starBit) {
+      ctx.fillStyle = "#ffe66d";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.fillStyle = particleColor;
       ctx.fillRect(p.x, p.y, 6, 6);
@@ -1645,10 +1780,27 @@ function draw(time) {
   });
   ctx.globalAlpha = 1;
   drawObstacles();
+  drawScoreStars();
   drawBirds();
   drawSuctionParticles();
   drawQuantumGate(time);
   drawPlayer();
+  drawFloatTexts();
+  if (scoreFlash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.35, scoreFlash * 0.28);
+    ctx.fillStyle = "#ffe66d";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = Math.min(1, scoreFlash);
+    ctx.fillStyle = "#ffe66d";
+    ctx.strokeStyle = "#11152a";
+    ctx.lineWidth = 5;
+    ctx.font = "900 42px ui-rounded, sans-serif";
+    ctx.textAlign = "center";
+    ctx.strokeText(`×${lastMultiplier}`, W / 2, 90);
+    ctx.fillText(`×${lastMultiplier}`, W / 2, 90);
+    ctx.restore();
+  }
   if (birdHitFlash > 0) {
     ctx.save();
     ctx.globalAlpha = birdHitFlash * 0.35;

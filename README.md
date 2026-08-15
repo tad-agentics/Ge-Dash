@@ -14,6 +14,7 @@ Six worlds × eight stages (**48 levels**). Each world teaches one new idea:
 6. **Quantum Rush** — everything mixes; clear the quantum gate  
 
 Each stage is about 18 seconds. Clear the **quantum gate** to continue.
+Grab floating **yellow stars** for a random **×2** or **×3** score boost.
 Earn up to ★★★ per stage (clear / no death / no bird hit) and bonus points
 for clean runs. After a crash the game auto-retries quickly.
 
