@@ -1530,7 +1530,8 @@ document.addEventListener(
 restartButton.addEventListener("click", () => startLevel(true));
 soundButton.addEventListener("click", () => {
   soundOn = !soundOn;
-  soundButton.textContent = `Sound: ${soundOn ? "on" : "off"}`;
+  soundButton.textContent = soundOn ? "Sound" : "Muted";
+  soundButton.setAttribute("aria-label", soundOn ? "Mute sound" : "Unmute sound");
 });
 
 function getFullscreenElement() {
@@ -1552,19 +1553,41 @@ function canUseFullscreenApi() {
   );
 }
 
+function prefersImmersiveFallback() {
+  const ua = navigator.userAgent || "";
+  const iOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches;
+  const narrow = window.matchMedia?.("(max-width: 900px)")?.matches;
+  return iOS || !canUseFullscreenApi() || Boolean(coarse && narrow);
+}
+
 function isImmersive() {
   return document.body.classList.contains("is-immersive") || Boolean(getFullscreenElement());
 }
 
 function syncFullscreenButton() {
   const active = isImmersive();
-  fullscreenButton.textContent = active ? "Exit full" : "Full";
+  fullscreenButton.textContent = active ? "Exit" : "Full";
   fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
   fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
   document.body.classList.toggle("is-fullscreen", active);
 }
 
+function applyImmersiveShell() {
+  document.body.classList.add("is-immersive");
+  window.scrollTo(0, 0);
+  gameShell.scrollIntoView({ block: "start", inline: "nearest" });
+}
+
 async function enterFullscreen() {
+  if (prefersImmersiveFallback()) {
+    applyImmersiveShell();
+    syncFullscreenButton();
+    return;
+  }
+
   const target = document.documentElement;
   try {
     if (target.requestFullscreen) {
@@ -1583,9 +1606,11 @@ async function enterFullscreen() {
       throw new Error("Fullscreen API unavailable");
     }
   } catch {
-    document.body.classList.add("is-immersive");
-    gameShell.scrollIntoView({ block: "center", inline: "nearest" });
+    applyImmersiveShell();
   }
+
+  // Some mobile browsers resolve without actually entering fullscreen.
+  if (!getFullscreenElement()) applyImmersiveShell();
   syncFullscreenButton();
 }
 
@@ -1622,10 +1647,16 @@ window.addEventListener("keydown", (event) => {
     toggleFullscreen();
   }
 });
-if (!canUseFullscreenApi()) {
-  fullscreenButton.title = "Immersive view (best available on this device)";
-}
+fullscreenButton.title = prefersImmersiveFallback()
+  ? "Fill the screen for play"
+  : "Toggle fullscreen";
 syncFullscreenButton();
+
+// Phones: start in play-focused immersive shell so the canvas isn't tiny.
+if (prefersImmersiveFallback()) {
+  applyImmersiveShell();
+  syncFullscreenButton();
+}
 
 characterButton.addEventListener("click", openCharacterModal);
 leaderboardButton.addEventListener("click", openLeaderboardModal);

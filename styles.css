@@ -394,20 +394,86 @@ footer p { margin: 0; }
 .leaderboard-empty.hidden { display: none; }
 
 @media (max-width: 700px) {
-  :root { --chrome: 14rem; }
+  :root { --chrome: 7rem; }
 
-  body { padding: max(10px, var(--safe-top)) max(10px, var(--safe-right)) max(10px, var(--safe-bottom)) max(10px, var(--safe-left)); }
-  header { margin-bottom: 10px; gap: 10px; }
-  .eyebrow { font-size: .68rem; letter-spacing: .12em; }
-  .header-actions { gap: 6px; }
-  .icon-button { padding: 10px 12px; }
-  .scoreboard { gap: 8px; margin-bottom: 10px; }
-  .scoreboard div { padding: 7px 10px; border-radius: 12px; }
-  .canvas-wrap { border-width: 2px; border-radius: 16px; }
+  html, body {
+    height: 100%;
+    height: 100dvh;
+  }
+
+  body {
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: max(6px, var(--safe-top)) 8px max(6px, var(--safe-bottom)) 8px;
+    overflow: hidden;
+  }
+
+  .game-shell {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  header {
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+
+  .eyebrow { display: none; }
+  h1 { font-size: 1.15rem; }
+
+  .header-actions { gap: 5px; }
+  .icon-button {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: .78rem;
+  }
+
+  .scoreboard {
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .scoreboard div {
+    flex: 1 1 0;
+    padding: 4px 6px;
+    border-radius: 10px;
+  }
+
+  .scoreboard span { font-size: .55rem; letter-spacing: .06em; }
+  .scoreboard strong { font-size: .95rem; }
+
+  .canvas-wrap {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: auto;
+    min-height: 0;
+    height: auto;
+    border-width: 2px;
+    border-radius: 14px;
+  }
+
   .level-progress { top: 8px; height: 6px; }
-  footer { align-items: stretch; flex-direction: column; gap: 10px; margin-top: 12px; }
-  footer button { width: 100%; }
+
+  footer {
+    align-items: stretch;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  footer p { display: none; }
+  footer button {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
   .game-message p { font-size: .85rem; }
+  .game-message h2 { font-size: clamp(1.4rem, 8vw, 2.4rem); }
   .modal-card { padding: 14px; border-radius: 18px; }
   .option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .option-grid.presets,
@@ -415,44 +481,58 @@ footer p { margin: 0; }
 }
 
 @media (max-width: 380px) {
-  :root { --chrome: 11.5rem; }
-  h1 { font-size: 1.35rem; }
-  .scoreboard div { flex-basis: 0; }
+  :root { --chrome: 6.5rem; }
+  h1 { font-size: 1.05rem; }
+  .icon-button { padding: 6px 8px; font-size: .72rem; }
+  .scoreboard strong { font-size: .88rem; }
 }
 
 @media (orientation: landscape) and (max-height: 540px) {
-  :root { --chrome: 9.5rem; }
+  :root { --chrome: 5.5rem; }
 
   body {
     place-items: stretch center;
-    padding: max(6px, var(--safe-top)) max(12px, var(--safe-right)) max(6px, var(--safe-bottom)) max(12px, var(--safe-left));
+    padding: max(4px, var(--safe-top)) max(8px, var(--safe-right)) max(4px, var(--safe-bottom)) max(8px, var(--safe-left));
+    overflow: hidden;
+    height: 100dvh;
   }
 
-  .game-shell { max-height: calc(100dvh - max(6px, var(--safe-top)) - max(6px, var(--safe-bottom))); }
+  .game-shell {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
 
-  header { margin-bottom: 6px; gap: 8px; }
+  header { margin-bottom: 4px; gap: 8px; }
   .eyebrow { display: none; }
-  h1 { font-size: clamp(1.1rem, 4.5vh, 1.8rem); }
-  button { min-height: 36px; padding: 7px 14px; }
-  .header-actions { gap: 6px; }
-  .icon-button { padding: 7px 10px; font-size: .85rem; }
+  h1 { font-size: clamp(1rem, 4.5vh, 1.5rem); }
+  button { min-height: 32px; padding: 6px 12px; }
+  .header-actions { gap: 5px; }
+  .icon-button { padding: 6px 9px; font-size: .78rem; }
 
-  .scoreboard { margin-bottom: 6px; gap: 6px; }
-  .scoreboard div { padding: 4px 10px; }
-  .scoreboard span { font-size: .62rem; }
-  .scoreboard strong { font-size: 1rem; }
+  .scoreboard { margin-bottom: 4px; gap: 4px; flex-wrap: nowrap; }
+  .scoreboard div { padding: 3px 8px; }
+  .scoreboard span { font-size: .55rem; }
+  .scoreboard strong { font-size: .9rem; }
 
-  .canvas-wrap { border-radius: 14px; }
+  .canvas-wrap {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: auto;
+    min-height: 0;
+    border-radius: 12px;
+  }
 
-  footer { margin-top: 6px; gap: 8px; }
+  footer { margin-top: 4px; gap: 8px; }
   footer p { display: none; }
-  footer button { width: auto; margin-left: auto; }
+  footer button { width: auto; margin-left: auto; min-height: 32px; }
 
   .modal { padding: 8px 12px; }
   .modal-card { max-height: 94dvh; padding: 12px; }
 }
 
-/* Native fullscreen + iOS/mobile immersive fallback */
+/* Native fullscreen + mobile immersive fill */
 html:fullscreen,
 html:-webkit-full-screen {
   background: #080b1d;
@@ -463,39 +543,101 @@ body.is-immersive,
 body.is-fullscreen,
 html:fullscreen body,
 html:-webkit-full-screen body {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   min-height: 100dvh;
-  place-items: stretch center;
-  padding: max(8px, var(--safe-top)) max(10px, var(--safe-right)) max(8px, var(--safe-bottom)) max(10px, var(--safe-left));
+  margin: 0;
+  padding: max(4px, var(--safe-top)) 6px max(4px, var(--safe-bottom)) 6px;
   overflow: hidden;
+  background: #080b1d;
 }
 
 body.is-immersive .game-shell,
 body.is-fullscreen .game-shell,
 html:fullscreen .game-shell,
 html:-webkit-full-screen .game-shell {
-  width: min(100%, 1400px);
+  width: 100%;
   max-width: none;
   height: 100%;
-  max-height: calc(100dvh - max(8px, var(--safe-top)) - max(8px, var(--safe-bottom)));
-  justify-content: center;
+  max-height: none;
+  justify-content: stretch;
 }
 
 body.is-immersive .canvas-wrap,
 body.is-fullscreen .canvas-wrap,
 html:fullscreen .canvas-wrap,
 html:-webkit-full-screen .canvas-wrap {
-  width: min(100%, calc((100dvh - var(--chrome)) * 16 / 9));
-  flex: 0 1 auto;
-  border-radius: 18px;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+  min-height: 0;
+  height: auto;
+  border-radius: 12px;
 }
 
 body.is-immersive .eyebrow,
 body.is-fullscreen .eyebrow,
 html:fullscreen .eyebrow,
-html:-webkit-full-screen .eyebrow {
+html:-webkit-full-screen .eyebrow,
+body.is-immersive footer p,
+body.is-fullscreen footer p,
+html:fullscreen footer p,
+html:-webkit-full-screen footer p {
   display: none;
+}
+
+body.is-immersive h1,
+body.is-fullscreen h1,
+html:fullscreen h1,
+html:-webkit-full-screen h1 {
+  font-size: clamp(1rem, 3.5vw, 1.35rem);
+}
+
+body.is-immersive header,
+body.is-fullscreen header,
+html:fullscreen header,
+html:-webkit-full-screen header {
+  margin-bottom: 4px;
+}
+
+body.is-immersive .scoreboard,
+body.is-fullscreen .scoreboard,
+html:fullscreen .scoreboard,
+html:-webkit-full-screen .scoreboard {
+  margin-bottom: 4px;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+body.is-immersive .scoreboard div,
+body.is-fullscreen .scoreboard div,
+html:fullscreen .scoreboard div,
+html:-webkit-full-screen .scoreboard div {
+  padding: 3px 8px;
+}
+
+body.is-immersive footer,
+body.is-fullscreen footer,
+html:fullscreen footer,
+html:-webkit-full-screen footer {
+  margin-top: 4px;
+}
+
+body.is-immersive .icon-button,
+body.is-fullscreen .icon-button,
+html:fullscreen .icon-button,
+html:-webkit-full-screen .icon-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: .78rem;
 }
 
 @media (orientation: landscape) {
@@ -503,20 +645,13 @@ html:-webkit-full-screen .eyebrow {
   body.is-fullscreen,
   html:fullscreen,
   html:-webkit-full-screen {
-    --chrome: 8.5rem;
+    --chrome: 5rem;
   }
 
   body.is-immersive,
   body.is-fullscreen,
   html:fullscreen body,
   html:-webkit-full-screen body {
-    padding: max(4px, var(--safe-top)) max(8px, var(--safe-right)) max(4px, var(--safe-bottom)) max(8px, var(--safe-left));
-  }
-
-  body.is-immersive footer p,
-  body.is-fullscreen footer p,
-  html:fullscreen footer p,
-  html:-webkit-full-screen footer p {
-    display: none;
+    padding: max(2px, var(--safe-top)) 6px max(2px, var(--safe-bottom)) 6px;
   }
 }
