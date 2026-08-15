@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10162f" />
+    <title>Khoi-Dash</title>
+    <link rel="stylesheet" href="styles.css?v=campaign62" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <header>
+        <div>
+          <p class="eyebrow">A game by Dad &amp; Sup</p>
+          <h1>KHOI-DASH</h1>
+        </div>
+        <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">Sound: on</button>
+      </header>
+
+      <section class="scoreboard" aria-label="Game scores">
+        <div><span>Level</span><strong><span id="level">1</span>/62</strong></div>
+        <div><span>Score</span><strong id="score">0</strong></div>
+        <div><span>Best</span><strong id="bestScore">0</strong></div>
+      </section>
+
+      <section class="canvas-wrap">
+        <div class="level-progress" aria-label="Level progress"><span id="levelProgress"></span></div>
+        <canvas id="game" width="960" height="540" aria-label="Khoi-Dash game"></canvas>
+        <div id="gameMessage" class="game-message">
+          <p class="message-kicker">Ready?</p>
+          <h2>Level 1 of 62</h2>
+          <p>Press <kbd>Space</kbd>, click, or tap — twice to double jump!</p>
+        </div>
+      </section>
+
+      <footer>
+        <p><strong>How to play:</strong> jump twice in the air to clear tricky spikes.</p>
+        <button id="restartButton" type="button">Restart level</button>
+      </footer>
+    </main>
+    <script src="game.js?v=campaign62b"></script>
+  </body>
+</html>
