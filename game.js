@@ -514,19 +514,97 @@ function completeLevel() {
   messageEl.classList.remove("hidden");
 }
 
-function spawnObstacle() {
+function spawnSpikeCluster() {
   const difficulty = levelDifficulty();
   const clusterSize = Math.random() < difficulty * 0.55 ? (Math.random() < difficulty * 0.3 ? 3 : 2) : 1;
   const spikeWidth = 40;
-  obstacles.push({ x: W + 30, width: spikeWidth * clusterSize, height: 42 + difficulty * 10 });
+  obstacles.push({
+    type: "spike",
+    x: W + 30,
+    width: spikeWidth * clusterSize,
+    height: 42 + difficulty * 10,
+  });
   const minGap = 245 - difficulty * 45;
   const randomGap = 260 - difficulty * 100;
   distanceToNext = minGap + Math.random() * randomGap;
 }
 
+function spawnStaircase() {
+  const difficulty = levelDifficulty();
+  let x = W + 50;
+  const spikeWidth = 36;
+  const spikePairWidth = spikeWidth * 2;
+  const spikeHeight = 40 + difficulty * 8;
+  // Ascending steps: short → mid → tall, with 2 spikes in each gap.
+  const steps = [
+    { width: 68, height: 74 },
+    { width: 96, height: 138 },
+    { width: 124, height: 205 },
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    obstacles.push({ type: "block", x, width: step.width, height: step.height });
+    x += step.width + 4;
+    if (i < steps.length - 1) {
+      obstacles.push({ type: "spike", x, width: spikePairWidth, height: spikeHeight });
+      x += spikePairWidth + 4;
+    }
+  }
+
+  distanceToNext = 340 + Math.random() * (240 - difficulty * 90);
+}
+
+function spawnObstacle() {
+  const difficulty = levelDifficulty();
+  if (Math.random() < 0.42 + difficulty * 0.28) spawnStaircase();
+  else spawnSpikeCluster();
+}
+
 function overlapsSpike(o) {
+  if (o.type !== "spike") return false;
   const pad = 8;
   return player.x + player.size - pad > o.x && player.x + pad < o.x + o.width && player.y + player.size - 5 > groundY - o.height;
+}
+
+function blockTop(o) {
+  return groundY - o.height;
+}
+
+function isLandingOnBlock(o) {
+  if (o.type !== "block" || player.velocityY < 0) return false;
+  const pad = 6;
+  const top = blockTop(o);
+  const foot = player.y + player.size;
+  const overlapsX = player.x + player.size - pad > o.x && player.x + pad < o.x + o.width;
+  return overlapsX && foot >= top && foot <= top + 18 && player.y < top;
+}
+
+function overlapsBlockBody(o) {
+  if (o.type !== "block") return false;
+  const pad = 8;
+  const top = blockTop(o);
+  const foot = player.y + player.size;
+  if (foot <= top + 3) return false;
+  if (Math.abs(foot - top) <= 10 && player.velocityY >= 0) return false;
+  return (
+    player.x + player.size - pad > o.x &&
+    player.x + pad < o.x + o.width &&
+    player.y + player.size - pad > top &&
+    player.y + pad < groundY
+  );
+}
+
+function resolvePlatformLanding() {
+  for (const o of obstacles) {
+    if (!isLandingOnBlock(o)) continue;
+    player.y = blockTop(o) - player.size;
+    player.velocityY = 0;
+    jumpsUsed = 0;
+    player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+    return true;
+  }
+  return false;
 }
 
 function updateBirds(dt) {
@@ -558,12 +636,14 @@ function update(dt, elapsedSeconds) {
 
   player.velocityY += 0.92 * dt;
   player.y += player.velocityY * dt;
-  if (player.y >= groundY - player.size) {
+
+  const onPlatform = resolvePlatformLanding();
+  if (!onPlatform && player.y >= groundY - player.size) {
     player.y = groundY - player.size;
     player.velocityY = 0;
     jumpsUsed = 0;
     player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
-  } else {
+  } else if (!onPlatform) {
     player.rotation += 0.09 * dt;
   }
 
@@ -578,7 +658,11 @@ function update(dt, elapsedSeconds) {
     o.x -= speed * dt;
   });
   obstacles = obstacles.filter((o) => o.x + o.width > -20);
-  if (obstacles.some(overlapsSpike)) {
+
+  // Keep standing on platforms after they scroll under the player.
+  if (player.velocityY >= 0) resolvePlatformLanding();
+
+  if (obstacles.some(overlapsSpike) || obstacles.some(overlapsBlockBody)) {
     endGame();
     return;
   }
@@ -799,10 +883,27 @@ function drawPlayer() {
 }
 
 function drawObstacles() {
-  ctx.fillStyle = "#ff5ea8";
-  ctx.shadowColor = "#ff5ea8";
-  ctx.shadowBlur = 16;
   obstacles.forEach((o) => {
+    if (o.type === "block") {
+      const top = blockTop(o);
+      ctx.shadowColor = "#7f94ff";
+      ctx.shadowBlur = 14;
+      const gradient = ctx.createLinearGradient(o.x, top, o.x, groundY);
+      gradient.addColorStop(0, "#9aa8ff");
+      gradient.addColorStop(1, "#3b4a9a");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(o.x, top, o.width, o.height);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#76f7d2";
+      ctx.fillRect(o.x, top, o.width, 6);
+      ctx.fillStyle = "#ffffff22";
+      ctx.fillRect(o.x + 8, top + 14, Math.max(12, o.width - 16), 10);
+      return;
+    }
+
+    ctx.fillStyle = "#ff5ea8";
+    ctx.shadowColor = "#ff5ea8";
+    ctx.shadowBlur = 16;
     const count = Math.max(1, Math.round(o.width / 40));
     for (let i = 0; i < count; i++) {
       const x = o.x + (o.width / count) * i;
@@ -813,8 +914,8 @@ function drawObstacles() {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.shadowBlur = 0;
   });
-  ctx.shadowBlur = 0;
 }
 
 function drawBirds() {
