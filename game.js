@@ -331,6 +331,8 @@ function updateGate(dt, elapsedSeconds) {
 
   if (dx < player.size * 0.3 && Math.abs(playerCenterY - quantumGate.cy) < quantumGate.ry * 0.9) {
     beginWarp();
+  } else if (quantumGate.x < player.x - 20) {
+    beginWarp();
   }
 }
 
@@ -359,6 +361,10 @@ function updateWarp(dt, elapsedSeconds) {
 
 function endGame() {
   state = "over";
+  quantumGate = null;
+  suctionParticles = [];
+  player.scale = 1;
+  player.alpha = 1;
   beep(110, 0.3, 0.08);
   const finalScore = Math.floor(score);
   best = Math.max(best, finalScore);
