@@ -7,7 +7,7 @@ A tiny one-button platform game made for Dad and Sup.
 Six worlds × eight stages (**48 levels**). Each world teaches one new idea:
 
 1. **Spark Fields** — jump / double jump over spikes  
-2. **Step Towers** — climb bright block tops (dark faces hurt)  
+2. **Step Towers** — climb bright block tops (bumping the pillar is safe)  
 3. **Orb Bridges** — hop floating orbs over spike rows  
 4. **Spring Hollows** — pits with bounce pads after the orbs  
 5. **Bird Winds** — rare birds shove you back to stage start  
