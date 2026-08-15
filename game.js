@@ -1056,37 +1056,107 @@ function update(dt, elapsedSeconds) {
   }
 }
 
+function makeStarField(count) {
+  const stars = [];
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * groundY,
+      r: Math.random() < 0.15 ? 1.8 + Math.random() * 1.4 : 0.6 + Math.random() * 1.1,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.004 + Math.random() * 0.01,
+      layer: Math.random() < 0.35 ? 0.25 : Math.random() < 0.7 ? 0.55 : 1,
+      tint: Math.random() < 0.2 ? "#9ef6ff" : Math.random() < 0.35 ? "#c9a0ff" : "#ffffff",
+    });
+  }
+  return stars;
+}
+
+const galaxyStars = makeStarField(140);
+
 function drawBackground(time) {
-  const gradient = ctx.createLinearGradient(0, 0, 0, H);
-  gradient.addColorStop(0, "#151f51");
-  gradient.addColorStop(1, "#54226c");
-  ctx.fillStyle = gradient;
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#07051a");
+  sky.addColorStop(0.45, "#140b2e");
+  sky.addColorStop(0.78, "#1a0a28");
+  sky.addColorStop(1, "#0a0618");
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.globalAlpha = 0.22;
-  ctx.strokeStyle = "#7f94ff";
-  ctx.lineWidth = 2;
-  const offset = (time * 0.02) % 80;
-  for (let x = -80 - offset; x < W + 80; x += 80) {
+  // Nebula clouds
+  const nebulae = [
+    { x: W * 0.22, y: groundY * 0.28, r: 220, c0: "rgba(88, 42, 160, 0.35)", c1: "rgba(88, 42, 160, 0)" },
+    { x: W * 0.72, y: groundY * 0.22, r: 260, c0: "rgba(30, 110, 170, 0.28)", c1: "rgba(30, 110, 170, 0)" },
+    { x: W * 0.55, y: groundY * 0.55, r: 240, c0: "rgba(160, 40, 110, 0.22)", c1: "rgba(160, 40, 110, 0)" },
+    { x: W * 0.12, y: groundY * 0.62, r: 160, c0: "rgba(60, 180, 200, 0.12)", c1: "rgba(60, 180, 200, 0)" },
+  ];
+  nebulae.forEach((n) => {
+    const g = ctx.createRadialGradient(n.x, n.y, 10, n.x, n.y, n.r);
+    g.addColorStop(0, n.c0);
+    g.addColorStop(1, n.c1);
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x + 180, groundY);
-    ctx.stroke();
-  }
-  for (let y = 45; y < groundY; y += 55) {
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Soft galaxy band
+  ctx.save();
+  ctx.translate(W * 0.62, groundY * 0.34);
+  ctx.rotate(-0.45);
+  const band = ctx.createLinearGradient(-280, 0, 280, 0);
+  band.addColorStop(0, "rgba(255,255,255,0)");
+  band.addColorStop(0.5, "rgba(210, 190, 255, 0.14)");
+  band.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = band;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 300, 48, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Parallax twinkling stars
+  const scroll = (time * 0.03 * speed) % W;
+  galaxyStars.forEach((star) => {
+    const x = ((star.x - scroll * star.layer) % W + W) % W;
+    const alpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * star.speed + star.twinkle));
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = star.tint;
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
+    ctx.arc(x, star.y, star.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = "#10162f";
+  // Distant planets
+  ctx.fillStyle = "#6ecbff22";
+  ctx.beginPath();
+  ctx.arc(W * 0.88, groundY * 0.18, 28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#9ef6ff44";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.88, groundY * 0.18, 42, 10, -0.3, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Cosmic ground shelf
+  const groundGrad = ctx.createLinearGradient(0, groundY, 0, H);
+  groundGrad.addColorStop(0, "#12102a");
+  groundGrad.addColorStop(1, "#070514");
+  ctx.fillStyle = groundGrad;
   ctx.fillRect(0, groundY, W, H - groundY);
   ctx.fillStyle = getColor(character.color);
+  ctx.shadowColor = getColor(character.color);
+  ctx.shadowBlur = 12;
   ctx.fillRect(0, groundY, W, 7);
-  ctx.fillStyle = "#1d2a51";
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#2a2455";
   for (let x = -((time * speed * 0.03) % 48); x < W; x += 48) ctx.fillRect(x, groundY + 22, 26, 8);
+  ctx.fillStyle = "#ffffff10";
+  for (let x = -((time * speed * 0.02) % 70); x < W; x += 70) {
+    ctx.beginPath();
+    ctx.arc(x + 18, groundY + 40, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawShapePath(target, size, shape) {
