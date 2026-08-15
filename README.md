@@ -8,6 +8,10 @@ score increases at a constant 10 points for every second the player survives.
 Near the end of every level a **quantum gate** appears — dash into it and get
 pulled through with a vortex suck to reach the next level.
 
+**Birds** start showing up as levels get harder. Touch one and you are thrown
+back to the start of the current level (progress resets, score for that level
+attempt is undone).
+
 ## Play
 
 Open `index.html` in a browser. Press Space, click, or tap to jump.
