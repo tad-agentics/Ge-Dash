@@ -213,7 +213,27 @@ function loadStars() {
 }
 
 function saveStars() {
-  localStorage.setItem(STORAGE.stars, JSON.stringify(starMap));
+  try {
+    localStorage.setItem(STORAGE.stars, JSON.stringify(starMap));
+  } catch {
+    // Ignore quota / private-mode storage failures.
+  }
+}
+
+function saveBestScore(value) {
+  try {
+    localStorage.setItem(STORAGE.best, String(value));
+  } catch {
+    // Ignore quota / private-mode storage failures.
+  }
+}
+
+function saveUnlockedLevel(level) {
+  try {
+    localStorage.setItem(STORAGE.unlocked, String(level));
+  } catch {
+    // Ignore quota / private-mode storage failures.
+  }
 }
 
 function getWorldInfo(level) {
@@ -321,7 +341,11 @@ function loadLeaderboard() {
 }
 
 function saveLeaderboard(rows) {
-  localStorage.setItem(STORAGE.leaderboard, JSON.stringify(rows.slice(0, LEADERBOARD_LIMIT)));
+  try {
+    localStorage.setItem(STORAGE.leaderboard, JSON.stringify(rows.slice(0, LEADERBOARD_LIMIT)));
+  } catch {
+    // Ignore quota / private-mode storage failures.
+  }
 }
 
 function submitScore(finalScore, levelReached) {
@@ -343,16 +367,27 @@ function submitScore(finalScore, levelReached) {
 
 function beep(frequency, duration, volume = 0.05) {
   if (!soundOn) return;
-  audioContext ??= new AudioContext();
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  oscillator.frequency.value = frequency;
-  oscillator.type = "square";
-  gain.gain.setValueAtTime(volume, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-  oscillator.connect(gain).connect(audioContext.destination);
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + duration);
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioContext ??= new AC();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+    const safeVolume = Math.max(0.0001, volume);
+    oscillator.frequency.value = frequency;
+    oscillator.type = "square";
+    gain.gain.setValueAtTime(safeVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.01, duration));
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + Math.max(0.01, duration));
+  } catch {
+    // Audio must never halt the game loop (mobile AudioContext quirks).
+  }
 }
 
 function scheduleNextStar() {
@@ -619,7 +654,11 @@ function startLevel(resetScore = false) {
 function act() {
   if (characterModal.classList.contains("hidden") === false) return;
   if (leaderboardModal.classList.contains("hidden") === false) return;
-  if (state === "warping") return;
+  // Tap skips a stuck/slow warp so level clear can never soft-lock input.
+  if (state === "warping") {
+    completeLevel();
+    return;
+  }
   if (state !== "playing") {
     if (autoRetryTimer) {
       clearTimeout(autoRetryTimer);
@@ -683,7 +722,7 @@ function spawnSuctionBurst(count, strength = 1) {
 }
 
 function beginWarp() {
-  if (state === "warping") return;
+  if (state === "warping" || state === "complete" || state === "finished") return;
   state = "warping";
   warpTime = 0;
   jumpsUsed = 2;
@@ -766,6 +805,7 @@ function updateWarp(dt, elapsedSeconds) {
 }
 
 function endGame() {
+  if (state === "over" || state === "complete" || state === "finished" || state === "warping") return;
   state = "over";
   deathsThisLevel += 1;
   quantumGate = null;
@@ -776,7 +816,7 @@ function endGame() {
   beep(110, 0.3, 0.08);
   const finalScore = Math.floor(score);
   best = Math.max(best, finalScore);
-  localStorage.setItem(STORAGE.best, best);
+  saveBestScore(best);
   bestEl.textContent = best;
   const info = currentWorldInfo();
   messageEl.innerHTML = `<p class="message-kicker">${info.world.name}</p><h2>Ouch!</h2><p>${finalScore} pts · Auto-retry… or tap now</p>`;
@@ -789,46 +829,69 @@ function endGame() {
 }
 
 function completeLevel() {
+  if (state === "complete" || state === "finished") return;
+
   state = "complete";
   obstacles = [];
   birds = [];
+  pickups = [];
+  floatTexts = [];
   suctionParticles = [];
   quantumGate = null;
+  warpTime = WARP_DURATION;
   player.scale = 1;
   player.alpha = 1;
-  beep(880, 0.25, 0.07);
+  if (autoRetryTimer) {
+    clearTimeout(autoRetryTimer);
+    autoRetryTimer = 0;
+  }
 
   let bonus = CLEAR_BONUS;
-  if (deathsThisLevel === 0) bonus += CLEAN_BONUS;
-  if (birdHitsThisLevel === 0 && deathsThisLevel === 0) bonus += BIRD_CLEAN_BONUS;
-  score += bonus;
-  const starResult = awardStarsForClear();
-  const starText = "★".repeat(starResult.stars) + "☆".repeat(3 - starResult.stars);
+  let starText = "★☆☆";
+  let finalScore = Math.floor(score);
 
-  const finalScore = Math.floor(score);
-  best = Math.max(best, finalScore);
-  localStorage.setItem(STORAGE.best, best);
-  bestEl.textContent = best;
-  scoreEl.textContent = finalScore;
+  try {
+    beep(880, 0.25, 0.07);
 
-  const info = currentWorldInfo();
-  if (currentLevel === TOTAL_LEVELS) {
-    state = "finished";
-    const rank = submitScore(finalScore, currentLevel);
-    const rankText = rank > 0 && rank <= LEADERBOARD_LIMIT ? ` · Board #${rank}` : "";
-    messageEl.innerHTML = `<p class="message-kicker">Campaign clear!</p><h2>Dash Master!</h2><p>${starText} · ${finalScore} pts (+${bonus})${rankText}</p><p>Tap for endless rematch on the final world</p>`;
-  } else {
-    const completed = info.levelInWorld;
-    const worldName = info.world.name;
-    currentLevel += 1;
-    localStorage.setItem(STORAGE.unlocked, currentLevel);
-    updateWorldHud();
-    const next = currentWorldInfo();
-    const worldClear = completed === info.world.levels;
-    messageEl.innerHTML = worldClear
-      ? `<p class="message-kicker">${worldName} clear!</p><h2>${next.world.name}</h2><p>${starText} · +${bonus} bonus · ${next.world.teach}</p>`
-      : `<p class="message-kicker">Gate cleared!</p><h2>${starText}</h2><p>+${bonus} bonus · Next ${next.levelInWorld}/${next.world.levels} · Tap to continue</p>`;
+    if (deathsThisLevel === 0) bonus += CLEAN_BONUS;
+    if (birdHitsThisLevel === 0 && deathsThisLevel === 0) bonus += BIRD_CLEAN_BONUS;
+    score += bonus;
+    const starResult = awardStarsForClear();
+    starText = "★".repeat(starResult.stars) + "☆".repeat(3 - starResult.stars);
+
+    finalScore = Math.floor(score);
+    best = Math.max(best, finalScore);
+    saveBestScore(best);
+    bestEl.textContent = best;
+    scoreEl.textContent = finalScore;
+
+    const info = currentWorldInfo();
+    if (currentLevel === TOTAL_LEVELS) {
+      state = "finished";
+      let rankText = "";
+      try {
+        const rank = submitScore(finalScore, currentLevel);
+        rankText = rank > 0 && rank <= LEADERBOARD_LIMIT ? ` · Board #${rank}` : "";
+      } catch {
+        rankText = "";
+      }
+      messageEl.innerHTML = `<p class="message-kicker">Campaign clear!</p><h2>Dash Master!</h2><p>${starText} · ${finalScore} pts (+${bonus})${rankText}</p><p>Tap for endless rematch on the final world</p>`;
+    } else {
+      const completed = info.levelInWorld;
+      const worldName = info.world.name;
+      currentLevel += 1;
+      saveUnlockedLevel(currentLevel);
+      updateWorldHud();
+      const next = currentWorldInfo();
+      const worldClear = completed === info.world.levels;
+      messageEl.innerHTML = worldClear
+        ? `<p class="message-kicker">${worldName} clear!</p><h2>${next.world.name}</h2><p>${starText} · +${bonus} bonus · ${next.world.teach}</p>`
+        : `<p class="message-kicker">Gate cleared!</p><h2>${starText}</h2><p>+${bonus} bonus · Next ${next.levelInWorld}/${next.world.levels} · Tap to continue</p>`;
+    }
+  } catch {
+    messageEl.innerHTML = `<p class="message-kicker">Gate cleared!</p><h2>Nice!</h2><p>Tap to continue</p>`;
   }
+
   messageEl.classList.remove("hidden");
 }
 
@@ -1823,8 +1886,21 @@ function loop(time) {
   const elapsedSeconds = Math.min((time - lastTime) / 1000 || 1 / 60, 0.25);
   const dt = Math.min(elapsedSeconds * 60, 2);
   lastTime = time;
-  update(dt, elapsedSeconds);
-  draw(time);
+  try {
+    update(dt, elapsedSeconds);
+    draw(time);
+  } catch (err) {
+    // Keep RAF alive — a single frame error must not freeze the game.
+    console.warn("Khoi-Dash frame error:", err);
+    if (state === "warping") {
+      try {
+        completeLevel();
+      } catch {
+        state = "complete";
+        messageEl.classList.remove("hidden");
+      }
+    }
+  }
   requestAnimationFrame(loop);
 }
 
